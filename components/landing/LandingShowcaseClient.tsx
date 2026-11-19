@@ -33,8 +33,8 @@ const HERO_SLIDES: HeroSlide[] = [
     tabLabel: 'PARCEIRO DE CONFIANÇA',
     line1: 'O Seu Parceiro',
     line2: 'de Gestão para Salões',
-    ctaLabel: 'Testar Agendamento',
-    ctaHref: '/salao/luanda-esthetique',
+    ctaLabel: 'Registar o Meu Salão',
+    ctaHref: '/login/gestao?tab=register',
   },
   {
     id: 'motor',
@@ -42,8 +42,8 @@ const HERO_SLIDES: HeroSlide[] = [
     tabLabel: 'MOTOR ANTI-CONFLITO',
     line1: 'Agenda Inteligente',
     line2: 'Sem Reservas Duplicadas',
-    ctaLabel: 'Ver Vagas em Luanda',
-    ctaHref: '/salao/luanda-esthetique',
+    ctaLabel: 'Criar Conta do Salão',
+    ctaHref: '/login/gestao?tab=register',
   },
   {
     id: 'financeiro',
@@ -68,22 +68,20 @@ export default function LandingShowcaseClient() {
   function handleQuickLookup(e: React.FormEvent) {
     e.preventDefault();
     const cleaned = lookupInput.trim();
-    if (!cleaned) {
-      setLookupError('Introduza o nome de um salão ou código (ex.: luanda-esthetique).');
+    const normalizedSlug = cleaned
+      .toLowerCase()
+      .replace(/^\/?salao\//, '')
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!normalizedSlug) {
+      setLookupError('Introduza o identificador público (slug) de um salão registado.');
       return;
     }
+
     setLookupError('');
     setSearchOpen(false);
-    const normalized = cleaned.toLowerCase();
-    if (normalized.includes('kizomba')) {
-      router.push('/salao/kizomba-beauty');
-      return;
-    }
-    if (normalized.startsWith('slm-')) {
-      router.push(`/salao/luanda-esthetique?codigo=${encodeURIComponent(cleaned.toUpperCase())}`);
-      return;
-    }
-    router.push('/salao/luanda-esthetique');
+    router.push(`/salao/${encodeURIComponent(normalizedSlug)}`);
   }
 
   return (
@@ -147,12 +145,6 @@ export default function LandingShowcaseClient() {
               >
                 Planos <ChevronDown className="w-3.5 h-3.5 opacity-70" />
               </a>
-              <Link
-                href="/salao/luanda-esthetique"
-                className="px-4 py-1.5 rounded-full bg-white text-[#142318] text-xs font-semibold hover:bg-white/90 transition-colors whitespace-nowrap shrink-0"
-              >
-                Booking
-              </Link>
             </nav>
 
             <div className="flex items-center gap-2.5 shrink-0">
@@ -189,7 +181,7 @@ export default function LandingShowcaseClient() {
                     type="text"
                     value={lookupInput}
                     onChange={(e) => setLookupInput(e.target.value)}
-                    placeholder="Pesquisar salão (Luanda Esthétique, Kizomba) ou código SLM-..."
+                    placeholder="Introduza o slug público do salão (ex.: meu-salao)"
                     className="flex-1 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none bg-transparent"
                   />
                   <button
@@ -307,8 +299,8 @@ export default function LandingShowcaseClient() {
                   MOTOR DE RESERVAS
                 </span>
                 <Link
-                  href="/salao/luanda-esthetique"
-                  aria-label="Testar motor de reservas"
+                  href="/login/gestao?tab=register"
+                  aria-label="Criar página de reservas do salão"
                   className="w-10 h-10 rounded-full bg-white text-[#142318] flex items-center justify-center hover:bg-zinc-100 transition-colors shrink-0"
                 >
                   <ArrowUpRight className="w-4 h-4" />
@@ -320,12 +312,12 @@ export default function LandingShowcaseClient() {
             </div>
 
             <Link
-              href="/salao/luanda-esthetique"
+              href="/login/gestao?tab=register"
               className="mt-6 block rounded-[18px] overflow-hidden aspect-[4/3] bg-zinc-200 group"
             >
               <img
                 src="/images/salon_studio_cover_1795068461036.jpg"
-                alt="Espaço e equipa do salão Luanda Esthétique"
+                alt="Espaço contemporâneo de salão de beleza"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
               />
@@ -368,15 +360,15 @@ export default function LandingShowcaseClient() {
 
             <div className="p-6 pt-2 flex flex-col justify-end relative z-10">
               <span className="self-start px-3 py-1 rounded-full bg-white/30 text-[#142318] text-[10px] font-semibold tracking-wider uppercase mb-3">
-                DESTAQUE AO VIVO
+                AGENDA ONLINE 24/7
               </span>
               <div className="flex items-end justify-between gap-4">
                 <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-medium leading-[1.25] text-[#142318]">
-                  Luanda Esthétique aceita reservas online 24/7 sem colisões
+                  O seu salão aceita reservas online 24/7 sem colisões
                 </h2>
                 <Link
-                  href="/salao/luanda-esthetique"
-                  aria-label="Abrir página pública do Luanda Esthétique"
+                  href="/login/gestao?tab=register"
+                  aria-label="Registar o seu salão para reservas online"
                   className="w-11 h-11 rounded-full bg-white text-[#142318] flex items-center justify-center hover:bg-zinc-100 transition-colors shrink-0"
                 >
                   <ArrowUpRight className="w-4 h-4" />
@@ -434,7 +426,7 @@ export default function LandingShowcaseClient() {
 
           <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <Link
-              href="/salao/luanda-esthetique"
+              href="/login/gestao?tab=register"
               className="group relative rounded-[20px] overflow-hidden aspect-[3/4] bg-zinc-900 flex flex-col justify-between p-5"
             >
               <img
@@ -644,12 +636,12 @@ export default function LandingShowcaseClient() {
         <div className="max-w-[1380px] mx-auto px-5 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
           <p>Salão+ · Gestão e Agendamentos para Salões de Beleza em Angola (Africa/Luanda · AOA/Kz)</p>
           <div className="flex items-center gap-6">
-            <Link href="/salao/luanda-esthetique" className="hover:text-[#142318]">
-              Luanda Esthétique
+            <Link href="/login/gestao?tab=register" className="hover:text-[#142318]">
+              Registar Salão
             </Link>
-            <Link href="/salao/kizomba-beauty" className="hover:text-[#142318]">
-              Kizomba Beauty Studio
-            </Link>
+            <a href="#planos" className="hover:text-[#142318]">
+              Planos
+            </a>
             <Link href="/login" className="hover:text-[#142318]">
               Aceder à Gestão
             </Link>

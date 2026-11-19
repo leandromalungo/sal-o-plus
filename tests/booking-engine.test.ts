@@ -4,7 +4,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { resetDbForTests } from '../lib/db/client.ts';
-import { ensureSeeded } from '../lib/db/seed.ts';
+import { seedTestFixtures } from '../lib/db/seed.ts';
 import {
   BookingConflictError,
   BookingError,
@@ -51,7 +51,7 @@ function getNextMonday(): string {
 describe('Salão+ Motor de Agendamentos & Regras Críticas', () => {
   beforeEach(() => {
     resetDbForTests(':memory:');
-    ensureSeeded();
+    seedTestFixtures();
   });
 
   it('1 e 9. Duas clientes não conseguem reservar a mesma profissional no mesmo horário (concorrência)', async () => {
@@ -201,7 +201,7 @@ describe('Salão+ Motor de Agendamentos & Regras Críticas', () => {
   it('6. Uma marcação não pode ocorrer num período bloqueado', () => {
     const date = getNextTuesday();
     const db = resetDbForTests(':memory:');
-    ensureSeeded();
+    seedTestFixtures();
 
     db.prepare(
       `INSERT INTO blocked_time_slots (id, salon_id, professional_id, date, start_time, end_time, start_minutes, end_minutes, reason, block_type, created_at)

@@ -4,31 +4,21 @@ import bcrypt from 'bcryptjs';
 import { getDb } from './client.ts';
 import { addDays, getLuandaNow } from '../utils/time.ts';
 
-let seededDbRef: unknown = null;
+let seededMetaDbRef: unknown = null;
+let seededDemoDbRef: unknown = null;
 
+/**
+ * Garante apenas metadados base (papéis e permissões) em ambiente de produção.
+ * Não cria salões nem contas de demonstração/teste em execução normal.
+ */
 export function ensureSeeded(): void {
   const db = getDb();
-  if (seededDbRef === db) {
+  if (seededMetaDbRef === db) {
     return;
   }
-
-  const existing = db.prepare('SELECT COUNT(*) as total FROM salons').get() as { total: number };
-  if (existing.total > 0) {
-    seededDbRef = db;
-    return;
-  }
-
-  const now = getLuandaNow();
-  const today = now.date;
-  const tomorrow = addDays(today, 1);
-  const yesterday = addDays(today, -1);
-  const createdAt = now.iso;
-
-  const passwordHash = bcrypt.hashSync('Salao@2026', 10);
 
   db.exec('BEGIN IMMEDIATE');
   try {
-    // Roles & Permissions
     const roles = [
       { id: 'role_super_admin', name: 'SUPER_ADMIN', description: 'Administrador global da plataforma Salão+' },
       { id: 'role_owner', name: 'OWNER', description: 'Proprietária com controlo total do seu salão' },
@@ -50,7 +40,45 @@ export function ensureSeeded(): void {
       db.prepare('INSERT OR IGNORE INTO permissions (id, code, description) VALUES (?, ?, ?)').run(p.id, p.code, p.description);
     }
 
-    // Salões
+    db.exec('COMMIT');
+    seededMetaDbRef = db;
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      // ignora
+    }
+    throw error;
+  }
+}
+
+/**
+ * Fixtures isoladas exclusivamente para a suite automatizada (node:test em memória).
+ */
+export function seedTestFixtures(): void {
+  ensureSeeded();
+  const db = getDb();
+  if (seededDemoDbRef === db) {
+    return;
+  }
+
+  const existing = db.prepare('SELECT COUNT(*) as total FROM salons').get() as { total: number };
+  if (existing.total > 0) {
+    seededDemoDbRef = db;
+    return;
+  }
+
+  const now = getLuandaNow();
+  const today = now.date;
+  const tomorrow = addDays(today, 1);
+  const yesterday = addDays(today, -1);
+  const createdAt = now.iso;
+
+  const passwordHash = bcrypt.hashSync('Salao@2026', 10);
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    // Salões de fixture para testes
     const insertSalon = db.prepare(`
       INSERT INTO salons (
         id, name, slug, description, address, city, phone, email,
@@ -430,7 +458,7 @@ export function ensureSeeded(): void {
     );
 
     db.exec('COMMIT');
-    seededDbRef = db;
+    seededDemoDbRef = db;
   } catch (error) {
     try {
       db.exec('ROLLBACK');
