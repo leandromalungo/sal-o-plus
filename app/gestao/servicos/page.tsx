@@ -89,15 +89,20 @@ export default function ServicosPage() {
     <GestaoShell title="Serviços & Categorias">
       {({ user }) => (
         <div className="space-y-6">
-          <div className="bg-white border border-zinc-200 rounded-xl p-4 flex items-center justify-between gap-4">
-            <p className="text-sm text-zinc-600">
-              Serviços inativos deixam de aparecer para novas marcações mantendo o histórico intacto.
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="font-[family-name:var(--font-jakarta)] text-2xl sm:text-[26px] font-bold tracking-tight text-zinc-900">
+                Serviços &amp; Categorias
+              </h1>
+              <p className="text-sm text-zinc-500 mt-0.5">
+                Serviços inativos deixam de aparecer para novas marcações mantendo o histórico intacto.
+              </p>
+            </div>
             {user.role === 'OWNER' && (
               <button
                 type="button"
                 onClick={() => setShowModal(true)}
-                className="px-3.5 py-2 text-xs font-medium bg-violet-700 text-white rounded-lg hover:bg-violet-800 inline-flex items-center gap-1.5 shrink-0"
+                className="px-4 py-2 text-xs font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Novo Serviço
@@ -105,62 +110,77 @@ export default function ServicosPage() {
             )}
           </div>
 
-          <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+          <div className="bg-white border border-zinc-200/80 rounded-2xl overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center text-sm text-zinc-500">A carregar catálogo...</div>
+              <div className="p-10 text-center text-sm text-zinc-500">A carregar catálogo...</div>
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead className="bg-[#fafafc] border-b border-zinc-200 text-xs text-zinc-500">
-                  <tr>
-                    <th className="px-5 py-3 font-medium">Serviço</th>
-                    <th className="px-5 py-3 font-medium">Categoria</th>
-                    <th className="px-5 py-3 font-medium text-right">Duração + Prep.</th>
-                    <th className="px-5 py-3 font-medium text-right">Preço</th>
-                    <th className="px-5 py-3 font-medium text-right">Estado</th>
-                    {user.role === 'OWNER' && <th className="px-5 py-3 font-medium text-right">Ação</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {services.map((svc) => (
-                    <tr key={svc.id} className="hover:bg-zinc-50">
-                      <td className="px-5 py-3.5">
-                        <p className="font-medium text-zinc-900">{svc.name}</p>
-                        <p className="text-xs text-zinc-500 line-clamp-1">{svc.description}</p>
-                      </td>
-                      <td className="px-5 py-3.5 text-xs text-zinc-600">{svc.category_name || 'Geral'}</td>
-                      <td className="px-5 py-3.5 text-right font-mono text-xs text-zinc-700 tabular-nums">
-                        {svc.duration_minutes}m {svc.buffer_minutes > 0 ? `+ ${svc.buffer_minutes}m` : ''}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono font-semibold text-zinc-900 tabular-nums">
-                        {formatKz(svc.price_kz)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right text-xs">
-                        <span className={svc.is_active ? 'text-emerald-700 font-medium' : 'text-zinc-400'}>
-                          {svc.is_active ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </td>
-                      {user.role === 'OWNER' && (
-                        <td className="px-5 py-3.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => toggleActive(svc)}
-                            className="px-2.5 py-1 text-xs border border-zinc-200 rounded-md hover:bg-white"
-                          >
-                            {svc.is_active ? 'Desativar' : 'Ativar'}
-                          </button>
-                        </td>
-                      )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-[#FAFAFB] border-b border-zinc-200/80 text-xs text-zinc-500">
+                    <tr>
+                      <th className="px-5 py-3.5 font-medium">Serviço</th>
+                      <th className="px-5 py-3.5 font-medium">Categoria</th>
+                      <th className="px-5 py-3.5 font-medium text-right">Duração + Prep.</th>
+                      <th className="px-5 py-3.5 font-medium text-right">Preço</th>
+                      <th className="px-5 py-3.5 font-medium text-right">Estado</th>
+                      {user.role === 'OWNER' && <th className="px-5 py-3.5 font-medium text-right">Ação</th>}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {services.map((svc) => (
+                      <tr key={svc.id} className="hover:bg-[#FAFAFB] transition-colors">
+                        <td className="px-5 py-3.5">
+                          <p className="font-medium text-zinc-900">{svc.name}</p>
+                          <p className="text-xs text-zinc-500 line-clamp-1">{svc.description}</p>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#EBE5FF] text-[#352375] text-[11px] font-medium">
+                            {svc.category_name || 'Geral'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono text-xs text-zinc-700 tabular-nums">
+                          {svc.duration_minutes}m {svc.buffer_minutes > 0 ? `+ ${svc.buffer_minutes}m` : ''}
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-zinc-900 tabular-nums">
+                          {formatKz(svc.price_kz)}
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-xs">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
+                              svc.is_active ? 'bg-[#D8F5E3] text-[#12532E]' : 'bg-zinc-100 text-zinc-500'
+                            }`}
+                          >
+                            {svc.is_active ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        {user.role === 'OWNER' && (
+                          <td className="px-5 py-3.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => toggleActive(svc)}
+                              className="px-3 py-1 text-xs font-medium border border-zinc-200 rounded-full hover:bg-[#F7F7F8] transition-colors cursor-pointer"
+                            >
+                              {svc.is_active ? 'Desativar' : 'Ativar'}
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
           {showModal && (
-            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-              <form onSubmit={handleCreate} className="bg-white border border-zinc-200 rounded-xl max-w-md w-full p-6 space-y-4">
-                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold">Criar Novo Serviço</h3>
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <form
+                onSubmit={handleCreate}
+                className="bg-white border border-zinc-200 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-xl"
+              >
+                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
+                  Criar Novo Serviço
+                </h3>
                 <div className="space-y-3">
                   <input
                     type="text"
@@ -168,12 +188,12 @@ export default function ServicosPage() {
                     placeholder="Nome do serviço"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                   <select
                     value={form.categoryId}
                     onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   >
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -186,7 +206,7 @@ export default function ServicosPage() {
                     placeholder="Descrição breve"
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                   <div className="grid grid-cols-3 gap-2">
                     <div>
@@ -197,7 +217,7 @@ export default function ServicosPage() {
                         required
                         value={form.priceKz}
                         onChange={(e) => setForm({ ...form, priceKz: Number(e.target.value) })}
-                        className="w-full px-2.5 py-2 text-sm border border-zinc-200 rounded-lg"
+                        className="w-full px-3 py-2 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono"
                       />
                     </div>
                     <div>
@@ -208,7 +228,7 @@ export default function ServicosPage() {
                         required
                         value={form.durationMinutes}
                         onChange={(e) => setForm({ ...form, durationMinutes: Number(e.target.value) })}
-                        className="w-full px-2.5 py-2 text-sm border border-zinc-200 rounded-lg"
+                        className="w-full px-3 py-2 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono"
                       />
                     </div>
                     <div>
@@ -218,15 +238,15 @@ export default function ServicosPage() {
                         min={0}
                         value={form.bufferMinutes}
                         onChange={(e) => setForm({ ...form, bufferMinutes: Number(e.target.value) })}
-                        className="w-full px-2.5 py-2 text-sm border border-zinc-200 rounded-lg"
+                        className="w-full px-3 py-2 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono"
                       />
                     </div>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-zinc-700">Profissionais habilitadas:</p>
-                    <div className="space-y-1 border border-zinc-200 rounded-lg p-2">
+                    <div className="space-y-1.5 bg-[#F7F7F8] border border-zinc-200 rounded-xl p-2.5">
                       {professionals.map((p) => (
-                        <label key={p.id} className="flex items-center gap-2 text-xs">
+                        <label key={p.id} className="flex items-center gap-2 text-xs text-zinc-700">
                           <input
                             type="checkbox"
                             checked={form.professionalIds.includes(p.id)}
@@ -249,11 +269,14 @@ export default function ServicosPage() {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2 text-xs font-medium border border-zinc-200 rounded-lg"
+                    className="px-4 py-2 text-xs font-medium border border-zinc-200 rounded-full hover:bg-zinc-50 cursor-pointer"
                   >
                     Cancelar
                   </button>
-                  <button type="submit" className="px-4 py-2 text-xs font-medium bg-violet-700 text-white rounded-lg">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 cursor-pointer"
+                  >
                     Guardar Serviço
                   </button>
                 </div>

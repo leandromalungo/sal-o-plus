@@ -81,89 +81,134 @@ export default function ClientesPage() {
     <GestaoShell title="Clientes">
       {() => (
         <div className="space-y-6">
-          <div className="bg-white border border-zinc-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
-            <div className="relative flex-1 min-w-[220px] max-w-md">
-              <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Pesquisar por nome ou telefone..."
-                className="w-full pl-9 pr-3.5 py-2 text-sm border border-zinc-200 rounded-lg"
-              />
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="font-[family-name:var(--font-jakarta)] text-2xl sm:text-[26px] font-bold tracking-tight text-zinc-900">
+                Clientes
+              </h1>
+              <p className="text-sm text-zinc-500 mt-0.5">
+                Histórico de visitas, preferências e contactos das clientes do salão.
+              </p>
             </div>
 
             <button
               type="button"
               onClick={() => setShowNew(true)}
-              className="px-3.5 py-2 text-xs font-medium bg-violet-700 text-white rounded-lg hover:bg-violet-800 inline-flex items-center gap-1.5"
+              className="px-4 py-2 text-xs font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               Registar Cliente
             </button>
           </div>
 
+          <div className="bg-[#F7F7F8] border border-zinc-200/80 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="relative flex-1 min-w-[220px] max-w-md">
+              <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Pesquisar por nome ou telefone..."
+                className="w-full pl-10 pr-4 py-2 text-sm bg-white border border-zinc-200 rounded-full focus:outline-none focus:border-zinc-400"
+              />
+            </div>
+            <span className="px-3 py-1 rounded-full bg-white border border-zinc-200 text-xs font-medium text-zinc-600 tabular-nums">
+              {customers.length} {customers.length === 1 ? 'cliente' : 'clientes'}
+            </span>
+          </div>
+
           {feedback && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+            <div className="p-3.5 rounded-2xl bg-[#D8F5E3] border border-emerald-200 text-sm text-[#12532E]">
               {feedback}
             </div>
           )}
 
-          <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+          <div className="bg-white border border-zinc-200/80 rounded-2xl overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center text-sm text-zinc-500">A carregar clientes...</div>
+              <div className="p-10 text-center text-sm text-zinc-500">A carregar clientes...</div>
             ) : customers.length === 0 ? (
-              <div className="p-8 text-center text-sm text-zinc-500">Nenhuma cliente encontrada.</div>
+              <div className="p-10 text-center text-sm text-zinc-500">Nenhuma cliente encontrada.</div>
             ) : (
               <div className="divide-y divide-zinc-100">
-                {customers.map((c) => (
-                  <div key={c.id} className="p-5 space-y-3">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <h3 className="font-semibold text-zinc-900">{c.name}</h3>
-                        <p className="text-xs text-zinc-600 font-mono mt-0.5">
-                          {c.phone}
-                          {c.email ? ` · ${c.email}` : ''}
-                        </p>
-                        {(c.preferences || c.notes) && (
-                          <p className="text-xs text-zinc-500 mt-1">
-                            {c.preferences ? `Preferências: ${c.preferences}` : ''}
-                            {c.preferences && c.notes ? ' · ' : ''}
-                            {c.notes ? `Obs.: ${c.notes}` : ''}
-                          </p>
-                        )}
-                      </div>
+                {customers.map((c) => {
+                  const initials = c.name
+                    .split(' ')
+                    .slice(0, 2)
+                    .map((n) => n[0])
+                    .join('')
+                    .toUpperCase();
+                  return (
+                    <div key={c.id} className="p-5 space-y-3 hover:bg-[#FAFAFB] transition-colors">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="flex items-start gap-3.5">
+                          <div className="w-10 h-10 rounded-full bg-[#EBE5FF] text-[#352375] text-xs font-semibold flex items-center justify-center shrink-0">
+                            {initials || 'CL'}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-zinc-900">{c.name}</h3>
+                            <p className="text-xs text-zinc-500 font-mono mt-0.5">
+                              {c.phone}
+                              {c.email ? ` · ${c.email}` : ''}
+                            </p>
+                            {(c.preferences || c.notes) && (
+                              <p className="text-xs text-zinc-600 mt-1.5">
+                                {c.preferences ? `Preferências: ${c.preferences}` : ''}
+                                {c.preferences && c.notes ? ' · ' : ''}
+                                {c.notes ? `Obs.: ${c.notes}` : ''}
+                              </p>
+                            )}
+                          </div>
+                        </div>
 
-                      <div className="flex items-center gap-4 text-xs text-zinc-600 font-mono tabular-nums">
-                        <span>{c.total_appointments} visitas</span>
-                        <span>·</span>
-                        <span>{c.completed_count} concluídas</span>
-                        <span>·</span>
-                        <span>{c.cancelled_count} cancelamentos</span>
-                        <span>·</span>
-                        <span>{c.no_show_count} faltas</span>
-                      </div>
-                    </div>
-
-                    {c.appointments.length > 0 && (
-                      <div className="pt-2 border-t border-zinc-100 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500">
-                        {c.appointments.slice(0, 3).map((a) => (
-                          <span key={a.id} className="tabular-nums">
-                            <span className="font-mono text-zinc-700">{a.booking_code}</span> ({formatDatePt(a.date)} {a.start_time}) ·{' '}
-                            {STATUS_LABELS[a.status]} · {formatKz(a.total_price_kz)}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium tabular-nums">
+                          <span className="px-2.5 py-1 rounded-full bg-[#F7F7F8] text-zinc-700">
+                            {c.total_appointments} visitas
                           </span>
-                        ))}
+                          <span className="px-2.5 py-1 rounded-full bg-[#D8F5E3] text-[#12532E]">
+                            {c.completed_count} concluídas
+                          </span>
+                          {c.cancelled_count > 0 && (
+                            <span className="px-2.5 py-1 rounded-full bg-[#FCEFD9] text-[#6B4A14]">
+                              {c.cancelled_count} cancelamentos
+                            </span>
+                          )}
+                          {c.no_show_count > 0 && (
+                            <span className="px-2.5 py-1 rounded-full bg-red-50 text-red-700">
+                              {c.no_show_count} faltas
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {c.appointments.length > 0 && (
+                        <div className="pt-2.5 border-t border-zinc-100 flex flex-wrap gap-2 text-xs text-zinc-600">
+                          {c.appointments.slice(0, 3).map((a) => (
+                            <span
+                              key={a.id}
+                              className="px-2.5 py-1 rounded-lg bg-[#F7F7F8] tabular-nums inline-flex items-center gap-1.5"
+                            >
+                              <span className="font-mono font-medium text-zinc-900">{a.booking_code}</span>
+                              <span>
+                                · {formatDatePt(a.date)} {a.start_time} · {STATUS_LABELS[a.status]} ·{' '}
+                                <span className="font-mono">{formatKz(a.total_price_kz)}</span>
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
           {showNew && (
-            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-              <form onSubmit={handleSave} className="bg-white border border-zinc-200 rounded-xl max-w-md w-full p-6 space-y-4">
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <form
+                onSubmit={handleSave}
+                className="bg-white border border-zinc-200 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-xl"
+              >
                 <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
                   Nova Cliente
                 </h3>
@@ -174,7 +219,7 @@ export default function ClientesPage() {
                     placeholder="Nome completo"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                   <input
                     type="tel"
@@ -182,39 +227,42 @@ export default function ClientesPage() {
                     placeholder="Telefone (+244 9...)"
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                   <input
                     type="email"
                     placeholder="E-mail (opcional)"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                   <input
                     type="text"
                     placeholder="Preferências (ex.: estilo, alergias)"
                     value={form.preferences}
                     onChange={(e) => setForm({ ...form, preferences: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                   <textarea
                     rows={2}
                     placeholder="Observações"
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowNew(false)}
-                    className="px-4 py-2 text-xs font-medium border border-zinc-200 rounded-lg"
+                    className="px-4 py-2 text-xs font-medium border border-zinc-200 rounded-full hover:bg-zinc-50 cursor-pointer"
                   >
                     Cancelar
                   </button>
-                  <button type="submit" className="px-4 py-2 text-xs font-medium bg-violet-700 text-white rounded-lg">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 cursor-pointer"
+                  >
                     Guardar Cliente
                   </button>
                 </div>

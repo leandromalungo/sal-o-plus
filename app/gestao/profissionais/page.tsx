@@ -112,15 +112,20 @@ export default function ProfissionaisPage() {
     <GestaoShell title="Profissionais">
       {({ user }) => (
         <div className="space-y-6">
-          <div className="bg-white border border-zinc-200 rounded-xl p-4 flex items-center justify-between gap-4">
-            <p className="text-sm text-zinc-600">
-              Configure turnos individuais, almoço, dias de folga, serviços autorizados e comissões.
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="font-[family-name:var(--font-jakarta)] text-2xl sm:text-[26px] font-bold tracking-tight text-zinc-900">
+                Equipa &amp; Escalas
+              </h1>
+              <p className="text-sm text-zinc-500 mt-0.5">
+                Turnos individuais, pausas de almoço, serviços autorizados e comissões.
+              </p>
+            </div>
             {user.role === 'OWNER' && (
               <button
                 type="button"
                 onClick={() => setShowNew(true)}
-                className="px-3.5 py-2 text-xs font-medium bg-violet-700 text-white rounded-lg hover:bg-violet-800 inline-flex items-center gap-1.5 shrink-0"
+                className="px-4 py-2 text-xs font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Adicionar Profissional
@@ -129,13 +134,15 @@ export default function ProfissionaisPage() {
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-sm text-zinc-500">A carregar equipa...</div>
+            <div className="p-10 text-center text-sm text-zinc-500 bg-white border border-zinc-200/80 rounded-2xl">
+              A carregar equipa...
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {pros.map((pro) => (
-                <div key={pro.id} className="bg-white border border-zinc-200 rounded-xl p-5 space-y-4">
+                <div key={pro.id} className="bg-white border border-zinc-200/80 rounded-2xl p-5 space-y-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3.5">
                       <img
                         src={pro.avatar_url || '/images/pro_avatar_one_1795068461594.jpg'}
                         alt={pro.name}
@@ -151,15 +158,19 @@ export default function ProfissionaisPage() {
                         </p>
                       </div>
                     </div>
-                    <span className={`text-xs font-medium ${pro.is_active ? 'text-emerald-700' : 'text-zinc-400'}`}>
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                        pro.is_active ? 'bg-[#D8F5E3] text-[#12532E]' : 'bg-zinc-100 text-zinc-500'
+                      }`}
+                    >
                       {pro.is_active ? 'Ativa' : 'Inativa'}
                     </span>
                   </div>
 
-                  <div className="text-xs text-zinc-600 space-y-1 border-t border-zinc-100 pt-3">
+                  <div className="bg-[#F7F7F8] rounded-xl p-3.5 text-xs text-zinc-600 space-y-1.5">
                     {pro.workingHours.slice(1, 7).map((wh) => (
                       <div key={wh.day_of_week} className="flex justify-between tabular-nums">
-                        <span>{DAY_NAMES_PT[wh.day_of_week]}</span>
+                        <span className="font-medium text-zinc-700">{DAY_NAMES_PT[wh.day_of_week]}</span>
                         <span className="font-mono">
                           {wh.is_working
                             ? `${wh.start_time}–${wh.end_time}${wh.lunch_start ? ` (Almoço ${wh.lunch_start}–${wh.lunch_end})` : ''}`
@@ -170,18 +181,18 @@ export default function ProfissionaisPage() {
                   </div>
 
                   {user.role === 'OWNER' && (
-                    <div className="pt-2 border-t border-zinc-100 flex items-center justify-end gap-2">
+                    <div className="pt-1 flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setEditingPro(pro)}
-                        className="px-3 py-1.5 text-xs font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50"
+                        className="px-3.5 py-1.5 text-xs font-medium border border-zinc-200 rounded-full hover:bg-[#F7F7F8] transition-colors cursor-pointer"
                       >
                         Editar Escala &amp; Serviços
                       </button>
                       <button
                         type="button"
                         onClick={() => toggleActive(pro)}
-                        className="px-3 py-1.5 text-xs font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50"
+                        className="px-3.5 py-1.5 text-xs font-medium border border-zinc-200 rounded-full hover:bg-[#F7F7F8] transition-colors cursor-pointer"
                       >
                         {pro.is_active ? 'Desativar' : 'Ativar'}
                       </button>
@@ -193,9 +204,14 @@ export default function ProfissionaisPage() {
           )}
 
           {showNew && (
-            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-              <form onSubmit={handleCreate} className="bg-white border border-zinc-200 rounded-xl max-w-md w-full p-6 space-y-4">
-                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold">Nova Profissional</h3>
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <form
+                onSubmit={handleCreate}
+                className="bg-white border border-zinc-200 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-xl"
+              >
+                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
+                  Nova Profissional
+                </h3>
                 <div className="space-y-3">
                   <input
                     type="text"
@@ -203,7 +219,7 @@ export default function ProfissionaisPage() {
                     placeholder="Nome completo"
                     value={newForm.name}
                     onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                   <input
                     type="tel"
@@ -211,14 +227,14 @@ export default function ProfissionaisPage() {
                     placeholder="Telefone (+244 9...)"
                     value={newForm.phone}
                     onChange={(e) => setNewForm({ ...newForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                   <input
                     type="text"
                     placeholder="Especialidades (ex.: Tranças, Manicure)"
                     value={newForm.specialties}
                     onChange={(e) => setNewForm({ ...newForm, specialties: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                   />
                   <div>
                     <label className="block text-xs font-medium text-zinc-700 mb-1">Comissão (%)</label>
@@ -228,12 +244,12 @@ export default function ProfissionaisPage() {
                       max={100}
                       value={newForm.commissionRate}
                       onChange={(e) => setNewForm({ ...newForm, commissionRate: Number(e.target.value) })}
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono focus:outline-none focus:bg-white"
                     />
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-zinc-700">Serviços habilitados:</p>
-                    <div className="max-h-28 overflow-y-auto space-y-1 border border-zinc-200 rounded-lg p-2">
+                    <div className="max-h-28 overflow-y-auto space-y-1.5 bg-[#F7F7F8] border border-zinc-200 rounded-xl p-2.5">
                       {services.map((s) => (
                         <label key={s.id} className="flex items-center gap-2 text-xs text-zinc-700">
                           <input
@@ -269,7 +285,7 @@ export default function ProfissionaisPage() {
                         placeholder="E-mail"
                         value={newForm.email}
                         onChange={(e) => setNewForm({ ...newForm, email: e.target.value })}
-                        className="px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                        className="px-3 py-2 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl"
                       />
                       <input
                         type="password"
@@ -277,7 +293,7 @@ export default function ProfissionaisPage() {
                         placeholder="Palavra-passe"
                         value={newForm.password}
                         onChange={(e) => setNewForm({ ...newForm, password: e.target.value })}
-                        className="px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                        className="px-3 py-2 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl"
                       />
                     </div>
                   )}
@@ -286,11 +302,14 @@ export default function ProfissionaisPage() {
                   <button
                     type="button"
                     onClick={() => setShowNew(false)}
-                    className="px-4 py-2 text-xs font-medium border border-zinc-200 rounded-lg"
+                    className="px-4 py-2 text-xs font-medium border border-zinc-200 rounded-full hover:bg-zinc-50 cursor-pointer"
                   >
                     Cancelar
                   </button>
-                  <button type="submit" className="px-4 py-2 text-xs font-medium bg-violet-700 text-white rounded-lg">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 cursor-pointer"
+                  >
                     Guardar Profissional
                   </button>
                 </div>
@@ -299,12 +318,12 @@ export default function ProfissionaisPage() {
           )}
 
           {editingPro && (
-            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4">
               <form
                 onSubmit={handleSaveSchedule}
-                className="bg-white border border-zinc-200 rounded-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+                className="bg-white border border-zinc-200 rounded-3xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-xl"
               >
-                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold">
+                <h3 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
                   Escala &amp; Serviços · {editingPro.name}
                 </h3>
 
@@ -332,7 +351,7 @@ export default function ProfissionaisPage() {
                           copy[idx] = { ...wh, start_time: e.target.value };
                           setEditingPro({ ...editingPro, workingHours: copy });
                         }}
-                        className="col-span-4 px-2 py-1 border border-zinc-200 rounded"
+                        className="col-span-4 px-2.5 py-1.5 bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono"
                       />
                       <input
                         type="time"
@@ -343,15 +362,15 @@ export default function ProfissionaisPage() {
                           copy[idx] = { ...wh, end_time: e.target.value };
                           setEditingPro({ ...editingPro, workingHours: copy });
                         }}
-                        className="col-span-4 px-2 py-1 border border-zinc-200 rounded"
+                        className="col-span-4 px-2.5 py-1.5 bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono"
                       />
                     </div>
                   ))}
                 </div>
 
-                <div className="space-y-1.5 pt-2 border-t border-zinc-100">
+                <div className="space-y-1.5 pt-3 border-t border-zinc-100">
                   <p className="text-xs font-medium text-zinc-700">Serviços associados:</p>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5 bg-[#F7F7F8] p-3 rounded-xl">
                     {services.map((s) => (
                       <label key={s.id} className="flex items-center gap-2 text-xs">
                         <input
@@ -376,11 +395,14 @@ export default function ProfissionaisPage() {
                   <button
                     type="button"
                     onClick={() => setEditingPro(null)}
-                    className="px-4 py-2 text-xs font-medium border border-zinc-200 rounded-lg"
+                    className="px-4 py-2 text-xs font-medium border border-zinc-200 rounded-full hover:bg-zinc-50 cursor-pointer"
                   >
                     Cancelar
                   </button>
-                  <button type="submit" className="px-4 py-2 text-xs font-medium bg-violet-700 text-white rounded-lg">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 cursor-pointer"
+                  >
                     Guardar Alterações
                   </button>
                 </div>

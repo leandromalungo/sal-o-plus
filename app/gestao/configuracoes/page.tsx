@@ -117,24 +117,35 @@ export default function ConfiguracoesPage() {
     <GestaoShell title="Configurações & Notificações">
       {() =>
         !data ? (
-          <p className="text-sm text-zinc-500">A carregar configurações...</p>
+          <div className="p-10 text-center text-sm text-zinc-500 bg-white border border-zinc-200/80 rounded-2xl">
+            A carregar configurações...
+          </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6">
+            <div>
+              <h1 className="font-[family-name:var(--font-jakarta)] text-2xl sm:text-[26px] font-bold tracking-tight text-zinc-900">
+                Configurações &amp; Notificações
+              </h1>
+              <p className="text-sm text-zinc-500 mt-0.5">
+                Regras do motor de agendamentos, horários de funcionamento, feriados e lembretes.
+              </p>
+            </div>
+
             {feedback && (
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+              <div className="p-3.5 rounded-2xl bg-[#D8F5E3] border border-emerald-200 text-sm text-[#12532E]">
                 {feedback}
               </div>
             )}
 
             <form onSubmit={saveAll} className="space-y-6">
               {/* Regras do Motor */}
-              <section className="bg-white border border-zinc-200 rounded-xl p-6 space-y-4">
+              <section className="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
                 <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
                   Regras do Motor de Agendamentos
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-zinc-700 mb-1">Intervalo de grelha</label>
+                    <label className="block text-xs font-medium text-zinc-700 mb-1.5">Intervalo de grelha</label>
                     <select
                       value={data.salon.slotIntervalMinutes}
                       onChange={(e) =>
@@ -143,7 +154,7 @@ export default function ConfiguracoesPage() {
                           salon: { ...data.salon, slotIntervalMinutes: Number(e.target.value) },
                         })
                       }
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl focus:outline-none focus:bg-white"
                     >
                       <option value={15}>15 minutos</option>
                       <option value={30}>30 minutos</option>
@@ -151,7 +162,7 @@ export default function ConfiguracoesPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-zinc-700 mb-1">Antecedência mínima (h)</label>
+                    <label className="block text-xs font-medium text-zinc-700 mb-1.5">Antecedência mínima (h)</label>
                     <input
                       type="number"
                       min={0}
@@ -163,11 +174,11 @@ export default function ConfiguracoesPage() {
                           salon: { ...data.salon, minAdvanceHours: Number(e.target.value) },
                         })
                       }
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg font-mono"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono focus:outline-none focus:bg-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-zinc-700 mb-1">Limite máximo (dias)</label>
+                    <label className="block text-xs font-medium text-zinc-700 mb-1.5">Limite máximo (dias)</label>
                     <input
                       type="number"
                       min={1}
@@ -179,11 +190,11 @@ export default function ConfiguracoesPage() {
                           salon: { ...data.salon, maxAdvanceDays: Number(e.target.value) },
                         })
                       }
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg font-mono"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono focus:outline-none focus:bg-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-zinc-700 mb-1">Cancelamento cliente (h)</label>
+                    <label className="block text-xs font-medium text-zinc-700 mb-1.5">Cancelamento cliente (h)</label>
                     <input
                       type="number"
                       min={0}
@@ -195,7 +206,7 @@ export default function ConfiguracoesPage() {
                           salon: { ...data.salon, minCancelHours: Number(e.target.value) },
                         })
                       }
-                      className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg font-mono"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono focus:outline-none focus:bg-white"
                     />
                   </div>
                 </div>
@@ -231,7 +242,7 @@ export default function ConfiguracoesPage() {
               </section>
 
               {/* Horário semanal do salão */}
-              <section className="bg-white border border-zinc-200 rounded-xl p-6 space-y-4">
+              <section className="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
                 <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
                   Horário de Funcionamento Semanal
                 </h2>
@@ -259,7 +270,7 @@ export default function ConfiguracoesPage() {
                           copy[idx] = { ...wh, open_time: e.target.value };
                           setData({ ...data, workingHours: copy });
                         }}
-                        className="col-span-4 sm:col-span-3 px-2.5 py-1.5 border border-zinc-200 rounded-lg font-mono text-xs"
+                        className="col-span-4 sm:col-span-3 px-3 py-2 bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono text-xs"
                       />
                       <input
                         type="time"
@@ -270,7 +281,7 @@ export default function ConfiguracoesPage() {
                           copy[idx] = { ...wh, close_time: e.target.value };
                           setData({ ...data, workingHours: copy });
                         }}
-                        className="col-span-4 sm:col-span-3 px-2.5 py-1.5 border border-zinc-200 rounded-lg font-mono text-xs"
+                        className="col-span-4 sm:col-span-3 px-3 py-2 bg-[#F7F7F8] border border-zinc-200 rounded-xl font-mono text-xs"
                       />
                     </div>
                   ))}
@@ -279,7 +290,7 @@ export default function ConfiguracoesPage() {
 
               {/* Notificações */}
               {data.notificationPrefs && (
-                <section className="bg-white border border-zinc-200 rounded-xl p-6 space-y-4">
+                <section className="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
                   <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
                     Canais de Notificação &amp; Lembretes
                   </h2>
@@ -338,14 +349,14 @@ export default function ConfiguracoesPage() {
 
               <button
                 type="submit"
-                className="px-5 py-2.5 text-sm font-medium bg-violet-700 text-white rounded-lg hover:bg-violet-800"
+                className="px-6 py-2.5 text-sm font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 Guardar Todas as Configurações
               </button>
             </form>
 
             {/* Feriados */}
-            <section className="bg-white border border-zinc-200 rounded-xl p-6 space-y-4">
+            <section className="bg-white border border-zinc-200/80 rounded-2xl p-6 space-y-4">
               <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
                 Feriados e Dias de Encerramento
               </h2>
@@ -355,7 +366,7 @@ export default function ConfiguracoesPage() {
                   required
                   value={holidayDate}
                   onChange={(e) => setHolidayDate(e.target.value)}
-                  className="px-3 py-2 text-sm border border-zinc-200 rounded-lg"
+                  className="px-3.5 py-2 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl"
                 />
                 <input
                   type="text"
@@ -363,9 +374,12 @@ export default function ConfiguracoesPage() {
                   placeholder="Nome do feriado / motivo"
                   value={holidayName}
                   onChange={(e) => setHolidayName(e.target.value)}
-                  className="px-3 py-2 text-sm border border-zinc-200 rounded-lg flex-1 min-w-[200px]"
+                  className="px-3.5 py-2 text-sm bg-[#F7F7F8] border border-zinc-200 rounded-xl flex-1 min-w-[200px]"
                 />
-                <button type="submit" className="px-4 py-2 text-xs font-medium bg-zinc-900 text-white rounded-lg">
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 cursor-pointer"
+                >
                   Adicionar Feriado
                 </button>
               </form>
@@ -378,7 +392,7 @@ export default function ConfiguracoesPage() {
                     <button
                       type="button"
                       onClick={() => removeHoliday(h.id)}
-                      className="text-xs text-red-600 hover:underline"
+                      className="text-xs text-red-600 hover:underline cursor-pointer"
                     >
                       Remover
                     </button>
@@ -388,20 +402,22 @@ export default function ConfiguracoesPage() {
             </section>
 
             {/* Fila de Notificações */}
-            <section className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-zinc-200 text-sm font-semibold text-zinc-900">
+            <section className="bg-white border border-zinc-200/80 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-zinc-200/80 bg-[#FAFAFB] text-sm font-semibold text-zinc-900">
                 Fila de Notificações Desacoplada ({data.notifications.length})
               </div>
               <div className="divide-y divide-zinc-100">
                 {data.notifications.map((n) => (
-                  <div key={n.id} className="px-5 py-3 text-xs flex items-center justify-between gap-4">
+                  <div key={n.id} className="px-5 py-3.5 text-xs flex items-center justify-between gap-4 hover:bg-[#FAFAFB]">
                     <div>
                       <p className="font-medium text-zinc-900">
                         {n.channel} · {n.event_type} · {n.recipient}
                       </p>
                       <p className="text-zinc-600 mt-0.5">{n.message}</p>
                     </div>
-                    <span className="font-mono text-zinc-500 shrink-0">{n.status}</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#F7F7F8] font-mono text-zinc-600 shrink-0">
+                      {n.status}
+                    </span>
                   </div>
                 ))}
               </div>

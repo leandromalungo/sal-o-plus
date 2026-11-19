@@ -4,24 +4,40 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard,
+  Asterisk,
   CalendarDays,
-  Users,
-  Scissors,
-  UserCheck,
-  Wallet,
-  Settings,
+  ChevronRight,
   ExternalLink,
+  LayoutDashboard,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Scissors,
+  Settings,
+  UserCheck,
+  Users,
+  Wallet,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import { ROLE_LABELS, type Salon, type SessionUser } from '@/lib/types/domain';
 import { AUTH_LAYERS, SALON_STAFF_LAYERS, type AuthLayer } from '@/lib/auth/layers';
+import { googleSignOut } from '@/lib/auth/google-client';
 
 interface GestaoShellProps {
   title: string;
+  pendingCount?: number;
   children: (ctx: { user: SessionUser; salon: Salon | null }) => React.ReactNode;
+}
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  visible: boolean;
+  badge?: number;
 }
 
 const TAB_LAYER_KEY = 'salaomais_tab_layer';
@@ -30,7 +46,13 @@ function isSalonStaffLayer(value: string | null): value is AuthLayer {
   return value !== null && (SALON_STAFF_LAYERS as string[]).includes(value);
 }
 
-export default function GestaoShell({ title, children }: GestaoShellProps) {
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
+}
+
+export default function GestaoShell({ title, pendingCount, children }: GestaoShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -38,6 +60,7 @@ export default function GestaoShell({ title, children }: GestaoShellProps) {
   const [salon, setSalon] = useState<Salon | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -76,7 +99,10 @@ export default function GestaoShell({ title, children }: GestaoShellProps) {
             return;
           }
         }
-        if (json.user?.role === 'RECEPTIONIST' && window.location.pathname === '/gestao/configuracoes') {
+        if (
+          json.user?.role === 'RECEPTIONIST' &&
+          window.location.pathname === '/gestao/configuracoes'
+        ) {
           router.replace('/gestao/agenda');
           return;
         }
@@ -95,14 +121,16 @@ export default function GestaoShell({ title, children }: GestaoShellProps) {
     };
   }, [router]);
 
-  // Injeta x-salao-layer em chamadas /api/gestao/* desta aba para manter múltiplas camadas isoladas simultaneamente
   useEffect(() => {
     if (!user) return;
     const originalFetch = window.fetch.bind(window);
     window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
       if (url.startsWith('/api/gestao') || url.startsWith('/api/auth/')) {
-        const nextHeaders = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
+        const nextHeaders = new Headers(
+          init?.headers || (input instanceof Request ? input.headers : undefined)
+        );
         if (!nextHeaders.has('x-salao-layer')) {
           nextHeaders.set('x-salao-layer', activeLayer);
         }
@@ -116,6 +144,7 @@ export default function GestaoShell({ title, children }: GestaoShellProps) {
   }, [user, activeLayer]);
 
   async function handleLogout() {
+    await googleSignOut();
     await fetch('/api/auth/logout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -127,23 +156,50 @@ export default function GestaoShell({ title, children }: GestaoShellProps) {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-[#fafafc] flex items-center justify-center">
-        <p className="text-sm text-zinc-500">A validar sessão...</p>
+      <div className="min-h-screen bg-[#EDF2F3] flex items-center justify-center p-4">
+        <div className="bg-white border border-zinc-200/80 rounded-2xl px-6 py-4 shadow-xs text-sm text-zinc-600">
+          A validar sessão...
+        </div>
       </div>
     );
   }
 
-  const navItems = [
-    { href: '/gestao', label: 'Dashboard', icon: LayoutDashboard, visible: true },
-    { href: '/gestao/agenda', label: 'Agenda', icon: CalendarDays, visible: true },
-    { href: '/gestao/clientes', label: 'Clientes', icon: Users, visible: user.role !== 'PROFESSIONAL' },
-    { href: '/gestao/profissionais', label: 'Profissionais', icon: UserCheck, visible: user.role !== 'PROFESSIONAL' },
-    { href: '/gestao/servicos', label: 'Serviços', icon: Scissors, visible: user.role !== 'PROFESSIONAL' },
+  const primaryNav: NavItem[] = [
+    { href: '/gestao', label: 'Visão Geral', icon: LayoutDashboard, visible: true },
+    {
+      href: '/gestao/agenda',
+      label: 'Agenda',
+      icon: CalendarDays,
+      visible: true,
+      badge: typeof pendingCount === 'number' && pendingCount > 0 ? pendingCount : undefined,
+    },
+    {
+      href: '/gestao/clientes',
+      label: 'Clientes',
+      icon: Users,
+      visible: user.role !== 'PROFESSIONAL',
+    },
+    {
+      href: '/gestao/profissionais',
+      label: 'Profissionais',
+      icon: UserCheck,
+      visible: user.role !== 'PROFESSIONAL',
+    },
+    {
+      href: '/gestao/servicos',
+      label: 'Serviços',
+      icon: Scissors,
+      visible: user.role !== 'PROFESSIONAL',
+    },
+  ].filter((item) => item.visible);
+
+  const operationsNav: NavItem[] = [
     {
       href: '/gestao/financeiro',
       label: 'Financeiro & Caixa',
       icon: Wallet,
-      visible: user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'SUPER_ADMIN',
+      visible:
+        user.role === 'OWNER' || user.role === 'RECEPTIONIST' || user.role === 'SUPER_ADMIN',
     },
     {
       href: '/gestao/configuracoes',
@@ -153,103 +209,236 @@ export default function GestaoShell({ title, children }: GestaoShellProps) {
     },
   ].filter((item) => item.visible);
 
+  const activeNavItem = [...primaryNav, ...operationsNav].find((item) => item.href === pathname);
+  const ActiveIcon = activeNavItem?.icon || LayoutDashboard;
+
   return (
-    <div className="min-h-screen bg-[#fafafc] text-zinc-900 flex">
-      {/* Sidebar Desktop */}
-      <aside className="hidden lg:flex lg:w-64 lg:flex-col border-r border-zinc-200 bg-white shrink-0">
-        <div className="p-5 border-b border-zinc-200">
-          <Link href="/" className="font-[family-name:var(--font-jakarta)] text-lg font-bold tracking-tight text-zinc-900">
-            Salão<span className="text-violet-700">+</span>
-          </Link>
-          <p className="text-xs text-zinc-500 mt-1 truncate">{salon?.name || 'Gestão'}</p>
-        </div>
-
-        <nav className="flex-1 p-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
-                  active
-                    ? 'bg-violet-50 text-violet-800'
-                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-zinc-200 space-y-3">
-          {salon && (
+    <div
+      className="min-h-screen text-zinc-900 flex flex-col lg:flex-row"
+      style={{
+        background:
+          'linear-gradient(155deg, #E8F0F0 0%, #EEF2F3 45%, #F2F3F0 100%)',
+      }}
+    >
+      {/* Barra Lateral Desktop (Estilo Image 1: Névoa Suave + Item Ativo em Cartão Branco) */}
+      <aside
+        className={`hidden lg:flex lg:flex-col shrink-0 transition-all duration-200 ${
+          collapsed ? 'lg:w-[82px]' : 'lg:w-[256px]'
+        } p-4 justify-between`}
+      >
+        <div className="space-y-6">
+          {/* Logótipo + Botão de Recolher */}
+          <div className="flex items-center justify-between gap-2 px-1.5 pt-1">
             <Link
-              href={`/salao/${salon.slug}`}
-              target="_blank"
-              className="flex items-center justify-between px-3 py-2 text-xs font-medium text-violet-700 bg-violet-50/70 rounded-lg hover:bg-violet-100 transition-colors"
+              href="/"
+              className="inline-flex items-center gap-2.5 min-w-0 whitespace-nowrap shrink-0"
+              title="Salão+"
             >
-              <span className="truncate">Página Pública</span>
-              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-            </Link>
-          )}
-          <div className="px-1">
-            <p className="text-xs font-semibold text-zinc-900 truncate">{user.name}</p>
-            <p className="text-[11px] text-zinc-500">{ROLE_LABELS[user.role]}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-zinc-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Terminar sessão
-          </button>
-        </div>
-      </aside>
-
-      {/* Drawer Mobile */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden flex">
-          <div className="fixed inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
-          <aside className="relative w-64 bg-white h-full border-r border-zinc-200 flex flex-col z-50">
-            <div className="p-5 border-b border-zinc-200 flex items-center justify-between">
-              <span className="font-[family-name:var(--font-jakarta)] text-lg font-bold">
-                Salão<span className="text-violet-700">+</span>
+              <span className="w-9 h-9 rounded-xl bg-[#18181B] text-[#A8DF1A] flex items-center justify-center shadow-xs shrink-0">
+                <Asterisk className="w-4 h-4" strokeWidth={2.5} />
               </span>
-              <button type="button" onClick={() => setMobileOpen(false)} className="p-1 text-zinc-500">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <nav className="flex-1 p-3 space-y-1">
-              {navItems.map((item) => {
+              {!collapsed && (
+                <div className="min-w-0">
+                  <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-tight text-zinc-900 block leading-none">
+                    Salão+
+                  </span>
+                  <span className="text-[11px] text-zinc-500 truncate block mt-0.5 max-w-[130px]">
+                    {salon?.name || 'Estabelecimento'}
+                  </span>
+                </div>
+              )}
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setCollapsed((v) => !v)}
+              aria-label={collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-white/60 transition-colors shrink-0 cursor-pointer"
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="w-4 h-4" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+
+          {/* Menu Principal */}
+          <div className="space-y-1.5">
+            {!collapsed && (
+              <p className="px-3 text-[11px] font-medium text-zinc-400">Menu principal</p>
+            )}
+            <nav className="space-y-1">
+              {primaryNav.map((item) => {
                 const Icon = item.icon;
                 const active = pathname === item.href;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg ${
-                      active ? 'bg-violet-50 text-violet-800' : 'text-zinc-600'
+                    title={collapsed ? item.label : undefined}
+                    className={`flex items-center justify-between gap-3 px-3 py-2.5 text-[13px] rounded-xl transition-all whitespace-nowrap ${
+                      active
+                        ? 'bg-white text-zinc-900 font-semibold shadow-xs'
+                        : 'text-zinc-600 font-medium hover:bg-white/60 hover:text-zinc-900'
                     }`}
                   >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span>{item.label}</span>
+                    <span className="flex items-center gap-3 min-w-0">
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                    </span>
+                    {!collapsed && item.badge && (
+                      <span className="w-5 h-5 rounded-full bg-[#18181B] text-white text-[10px] font-mono font-semibold flex items-center justify-center tabular-nums shrink-0">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
             </nav>
-            <div className="p-4 border-t border-zinc-200">
+          </div>
+
+          {/* Operações & Configurações */}
+          {operationsNav.length > 0 && (
+            <div className="space-y-1.5">
+              {!collapsed && (
+                <p className="px-3 text-[11px] font-medium text-zinc-400">Gestão &amp; controlo</p>
+              )}
+              <nav className="space-y-1">
+                {operationsNav.map((item) => {
+                  const Icon = item.icon;
+                  const active = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      title={collapsed ? item.label : undefined}
+                      className={`flex items-center gap-3 px-3 py-2.5 text-[13px] rounded-xl transition-all whitespace-nowrap ${
+                        active
+                          ? 'bg-white text-zinc-900 font-semibold shadow-xs'
+                          : 'text-zinc-600 font-medium hover:bg-white/60 hover:text-zinc-900'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
+        </div>
+
+        {/* Rodapé da Conta */}
+        <div className="space-y-3 pt-4 border-t border-zinc-300/50">
+          {salon && !collapsed && (
+            <Link
+              href={`/salao/${salon.slug}`}
+              target="_blank"
+              className="flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-700 bg-white/75 hover:bg-white rounded-xl border border-white transition-colors"
+            >
+              <span className="truncate">Booking Público</span>
+              <ExternalLink className="w-3.5 h-3.5 shrink-0 text-zinc-500" />
+            </Link>
+          )}
+
+          {!collapsed && (
+            <p className="px-2 text-[11px] font-medium text-zinc-400">Conta</p>
+          )}
+
+          <div className="flex items-center justify-between gap-2 px-1.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-[#18181B] text-[#A8DF1A] text-xs font-semibold flex items-center justify-center shrink-0">
+                {getInitials(user.name)}
+              </div>
+              {!collapsed && (
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-zinc-900 truncate">{user.name}</p>
+                  <p className="text-[11px] text-zinc-500 truncate">{ROLE_LABELS[user.role]}</p>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Terminar sessão"
+              aria-label="Terminar sessão"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-red-700 hover:bg-white transition-colors shrink-0 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Drawer Mobile */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div
+            className="fixed inset-0 bg-black/35 backdrop-blur-xs"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="relative w-72 bg-[#EEF2F3] h-full p-4 flex flex-col justify-between z-50">
+            <div className="space-y-5">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-[#18181B] text-[#A8DF1A] flex items-center justify-center">
+                    <Asterisk className="w-4 h-4" strokeWidth={2.5} />
+                  </span>
+                  <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
+                    Salão+
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(false)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-zinc-600"
+                  aria-label="Fechar menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <nav className="space-y-1">
+                {[...primaryNav, ...operationsNav].map((item) => {
+                  const Icon = item.icon;
+                  const active = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={`min-h-[44px] flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm rounded-xl ${
+                        active ? 'bg-white text-zinc-900 font-semibold shadow-xs' : 'text-zinc-700'
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span>{item.label}</span>
+                      </span>
+                      {item.badge ? (
+                        <span className="w-5 h-5 rounded-full bg-[#18181B] text-white text-[10px] font-mono font-semibold flex items-center justify-center tabular-nums">
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="space-y-3 pt-4 border-t border-zinc-300/60">
+              <div className="px-2">
+                <p className="text-xs font-semibold text-zinc-900">{user.name}</p>
+                <p className="text-[11px] text-zinc-500">{ROLE_LABELS[user.role]}</p>
+              </div>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-700 bg-red-50 rounded-lg"
+                className="w-full min-h-[44px] flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-red-700 bg-white rounded-xl border border-red-200"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-4 h-4" />
                 Terminar sessão
               </button>
             </div>
@@ -257,48 +446,60 @@ export default function GestaoShell({ title, children }: GestaoShellProps) {
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-zinc-200 px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
+      {/* Área Principal Branca Flutuante (Estilo Image 1) */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white lg:my-2.5 lg:mr-2.5 lg:rounded-[26px] border border-zinc-200/75 shadow-xs overflow-hidden">
+        <header className="px-4 sm:px-8 py-4 border-b border-zinc-100 flex items-center justify-between gap-4 bg-white">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden p-2 rounded-lg border border-zinc-200 text-zinc-700"
+              className="lg:hidden min-w-[44px] min-h-[44px] rounded-xl border border-zinc-200 text-zinc-700 flex items-center justify-center shrink-0"
               aria-label="Abrir menu"
             >
               <Menu className="w-4 h-4" />
             </button>
-            <div className="text-sm text-zinc-500 flex items-center gap-2 truncate">
-              <span className="hidden sm:inline">{salon?.name || 'Salão+'}</span>
-              <span className="hidden sm:inline text-zinc-300">/</span>
-              <h1 className="font-[family-name:var(--font-jakarta)] font-semibold text-zinc-900 truncate">
-                {title}
-              </h1>
-            </div>
+
+            <nav
+              aria-label="Navegação estrutural"
+              className="flex items-center gap-2 text-xs sm:text-sm text-zinc-400 min-w-0"
+            >
+              <span className="hidden sm:inline truncate max-w-[180px] text-zinc-400">
+                {salon?.name || 'Salão+'}
+              </span>
+              <ChevronRight className="hidden sm:inline w-3.5 h-3.5 shrink-0 text-zinc-300" />
+              <span className="inline-flex items-center gap-2 text-zinc-900 font-semibold truncate">
+                <ActiveIcon className="w-4 h-4 shrink-0 text-zinc-700" />
+                <h1 className="font-[family-name:var(--font-jakarta)] truncate">{title}</h1>
+              </span>
+            </nav>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             {salon && (
               <Link
                 href={`/salao/${salon.slug}`}
                 target="_blank"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-zinc-200 rounded-lg text-zinc-700 hover:bg-zinc-50 whitespace-nowrap"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium border border-zinc-200 rounded-full text-zinc-700 hover:bg-zinc-50 whitespace-nowrap shrink-0 transition-colors"
               >
-                Ver Booking Público
+                <span>Página Pública</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </Link>
             )}
-            <Link
-              href="/gestao/agenda"
-              className="px-3.5 py-1.5 text-xs font-medium bg-violet-700 text-white rounded-lg hover:bg-violet-800 whitespace-nowrap"
-            >
-              Nova Marcação
-            </Link>
+            {user.role !== 'PROFESSIONAL' && (
+              <Link
+                href="/gestao/agenda?new=1"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-[#18181B] text-white rounded-full hover:bg-zinc-800 whitespace-nowrap shrink-0 transition-colors shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Nova Marcação</span>
+              </Link>
+            )}
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">{children({ user, salon })}</main>
+        <main className="flex-1 p-4 sm:p-8 max-w-[1320px] w-full mx-auto">
+          {children({ user, salon })}
+        </main>
       </div>
     </div>
   );

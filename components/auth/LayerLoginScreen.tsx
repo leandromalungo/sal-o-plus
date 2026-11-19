@@ -9,11 +9,65 @@ import {
   Asterisk,
   Building2,
   Check,
+  CheckCircle2,
   Eye,
   EyeOff,
   Lock,
 } from 'lucide-react';
 import { AUTH_LAYERS, type AuthLayer } from '@/lib/auth/layers';
+import {
+  getActiveGoogleTokens,
+  googleSignOut,
+  signInWithGooglePopup,
+} from '@/lib/auth/google-client';
+
+function GoogleOfficialIcon() {
+  return (
+    <svg
+      version="1.1"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 48 48"
+      aria-hidden="true"
+      className="w-5 h-5 block shrink-0"
+    >
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+      <path fill="none" d="M0 0h48v48H0z" />
+    </svg>
+  );
+}
+
+function mapGooglePopupError(err: unknown): string {
+  const code =
+    typeof err === 'object' && err !== null && 'code' in err
+      ? String((err as { code?: string }).code)
+      : '';
+
+  if (code === 'auth/popup-blocked') {
+    return 'O navegador bloqueou a janela do Google. Permita pop-ups para continuar.';
+  }
+  if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+    return 'A janela de início de sessão Google foi fechada antes de concluir.';
+  }
+  if (code === 'auth/unauthorized-domain') {
+    return 'Este domínio ainda não está autorizado para autenticação Google.';
+  }
+  return 'Não foi possível concluir a autenticação com a conta Google.';
+}
 
 function LayerLoginInner({ layer }: { layer: AuthLayer }) {
   const meta = AUTH_LAYERS[layer];
@@ -30,9 +84,11 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
   const [password, setPassword] = useState('');
   const [salonName, setSalonName] = useState('');
   const [ownerName, setOwnerName] = useState('');
-  const [phone, setPhone] = useState('923 000 000');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleProfile, setGoogleProfile] = useState<{ email: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function finishLoginNavigation() {
@@ -67,10 +123,106 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
     }
   }
 
+  async function submitGoogleBackend(params: {
+    accessToken: string | null;
+    idToken: string | null;
+    includeSalonFields: boolean;
+  }) {
+    const fullPhone = phone.trim().startsWith('+244') ? phone.trim() : `+244 ${phone.trim()}`;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (params.accessToken) {
+      headers.Authorization = `Bearer ${params.accessToken}`;
+    }
+
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        layer,
+        idToken: params.idToken,
+        ...(params.includeSalonFields
+          ? {
+              salonName,
+              ownerName,
+              phone: fullPhone,
+              address,
+            }
+          : {}),
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      await googleSignOut();
+      setError(data.error || 'Não foi possível autenticar com a conta Google.');
+      return;
+    }
+
+    if (data.needsSalonSetup && data.googleProfile) {
+      setGoogleProfile({
+        email: String(data.googleProfile.email),
+        name: String(data.googleProfile.name || ''),
+      });
+      setEmail(String(data.googleProfile.email));
+      if (!ownerName.trim() && data.googleProfile.name) {
+        setOwnerName(String(data.googleProfile.name));
+      }
+      if (meta.allowRegistration) {
+        setTab('register');
+      }
+      return;
+    }
+
+    finishLoginNavigation();
+  }
+
+  async function handleGoogleAuth(includeSalonFields: boolean) {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      const signInResult = await signInWithGooglePopup();
+      await submitGoogleBackend({
+        accessToken: signInResult.accessToken,
+        idToken: signInResult.idToken,
+        includeSalonFields,
+      });
+    } catch (err) {
+      setError(mapGooglePopupError(err));
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
+
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    if (googleProfile) {
+      try {
+        const tokens = await getActiveGoogleTokens();
+        if (!tokens.accessToken && !tokens.idToken) {
+          const refreshed = await signInWithGooglePopup();
+          await submitGoogleBackend({
+            accessToken: refreshed.accessToken,
+            idToken: refreshed.idToken,
+            includeSalonFields: true,
+          });
+        } else {
+          await submitGoogleBackend({
+            accessToken: tokens.accessToken,
+            idToken: tokens.idToken,
+            includeSalonFields: true,
+          });
+        }
+      } catch (err) {
+        setError(mapGooglePopupError(err));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const fullPhone = phone.trim().startsWith('+244') ? phone.trim() : `+244 ${phone.trim()}`;
     try {
       const res = await fetch('/api/auth/register-salon', {
@@ -97,6 +249,13 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
       setError('Erro de ligação ao servidor.');
       setLoading(false);
     }
+  }
+
+  async function clearGoogleOnboarding() {
+    await googleSignOut();
+    setGoogleProfile(null);
+    setEmail('');
+    setError(null);
   }
 
   return (
@@ -194,7 +353,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
           </div>
         </section>
 
-        {/* Painel Direito: Formulário Limpo de Produção (sem credenciais ou links expostos) */}
+        {/* Painel Direito: Formulário Limpo de Produção + Google Sign-In Oficial */}
         <section className="lg:col-span-7 px-3 sm:px-8 lg:px-12 py-4 sm:py-6 flex flex-col justify-between">
           <div className="flex items-center justify-between gap-4">
             <Link
@@ -237,12 +396,18 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
 
           <div className="my-auto py-8 max-w-md w-full mx-auto">
             <h2 className="font-[family-name:var(--font-jakarta)] text-2xl sm:text-[28px] font-semibold tracking-tight text-[#142318] text-center">
-              {tab === 'register' ? 'Registar Novo Salão' : meta.title}
+              {tab === 'register'
+                ? googleProfile
+                  ? 'Concluir Registo com Google'
+                  : 'Registar Novo Salão'
+                : meta.title}
             </h2>
             <p className="text-xs text-zinc-500 text-center mt-2">
               {tab === 'register'
-                ? 'Crie a conta do seu estabelecimento em Angola'
-                : 'Introduza o seu e-mail e palavra-passe para continuar'}
+                ? googleProfile
+                  ? 'Indique apenas o nome do salão e o telefone para criar o seu espaço'
+                  : 'Crie a conta do seu estabelecimento em Angola'
+                : 'Introduza os seus dados ou entre com a sua conta Google'}
             </p>
 
             {error && (
@@ -309,11 +474,27 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || googleLoading}
                     className="w-full py-3.5 px-5 rounded-full bg-[#A8DF1A] hover:bg-[#b5eb26] text-[#142318] text-sm font-semibold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2 cursor-pointer mt-2"
                   >
                     <Lock className="w-4 h-4" />
                     {loading ? 'A validar acesso...' : 'Continuar'}
+                  </button>
+
+                  <div className="relative flex items-center py-1">
+                    <div className="flex-grow border-t border-zinc-200" />
+                    <span className="shrink-0 px-3 text-[11px] font-medium text-zinc-400">ou</span>
+                    <div className="flex-grow border-t border-zinc-200" />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={loading || googleLoading}
+                    onClick={() => handleGoogleAuth(false)}
+                    className="w-full py-3 px-5 rounded-full bg-white hover:bg-[#F5F4F1] border border-zinc-200 text-[#142318] text-sm font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-3 cursor-pointer shadow-xs"
+                  >
+                    <GoogleOfficialIcon />
+                    <span>{googleLoading ? 'A ligar à conta Google...' : 'Continuar com Google'}</span>
                   </button>
 
                   {meta.allowRegistration && (
@@ -342,6 +523,27 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                   onSubmit={handleRegister}
                   className="mt-6 space-y-3.5"
                 >
+                  {googleProfile && (
+                    <div className="p-3 rounded-xl bg-[#A8DF1A]/15 border border-[#A8DF1A]/60 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <CheckCircle2 className="w-4 h-4 text-[#142318] shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[#142318] truncate">
+                            {googleProfile.name || 'Conta Google'}
+                          </p>
+                          <p className="text-[11px] text-zinc-600 truncate">{googleProfile.email}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearGoogleOnboarding}
+                        className="text-[11px] font-semibold text-[#142318] underline underline-offset-2 shrink-0 cursor-pointer"
+                      >
+                        Alterar
+                      </button>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-medium text-[#142318] mb-1.5">
                       Número de telefone
@@ -407,10 +609,11 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                         <input
                           type="email"
                           required
+                          readOnly={Boolean(googleProfile)}
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="nome@empresa.ao"
-                          className="w-full text-sm text-[#142318] placeholder:text-zinc-400 bg-transparent outline-none"
+                          className="w-full text-sm text-[#142318] placeholder:text-zinc-400 bg-transparent outline-none read-only:opacity-75"
                         />
                       </div>
                     </div>
@@ -431,39 +634,67 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-[#142318] mb-1.5">
-                      Palavra-passe
-                    </label>
-                    <div className="flex items-center justify-between bg-[#F5F4F1] rounded-xl px-4 py-2.5 border border-transparent focus-within:border-[#A8DF1A] focus-within:bg-white transition-colors">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        minLength={6}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Mínimo 6 caracteres"
-                        className="w-full text-sm text-[#142318] placeholder:text-zinc-400 bg-transparent outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        aria-label={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
-                        className="text-zinc-400 hover:text-[#142318] ml-2 shrink-0 cursor-pointer"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                  {!googleProfile && (
+                    <div>
+                      <label className="block text-xs font-medium text-[#142318] mb-1.5">
+                        Palavra-passe
+                      </label>
+                      <div className="flex items-center justify-between bg-[#F5F4F1] rounded-xl px-4 py-2.5 border border-transparent focus-within:border-[#A8DF1A] focus-within:bg-white transition-colors">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          minLength={6}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Mínimo 6 caracteres"
+                          className="w-full text-sm text-[#142318] placeholder:text-zinc-400 bg-transparent outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
+                          className="text-zinc-400 hover:text-[#142318] ml-2 shrink-0 cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || googleLoading}
                     className="w-full py-3.5 px-5 rounded-full bg-[#A8DF1A] hover:bg-[#b5eb26] text-[#142318] text-sm font-semibold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Building2 className="w-4 h-4" />
-                    {loading ? 'A criar estabelecimento...' : 'Criar Salão'}
+                    {loading
+                      ? 'A criar estabelecimento...'
+                      : googleProfile
+                      ? 'Concluir Registo com Google'
+                      : 'Criar Salão'}
                   </button>
+
+                  {!googleProfile && (
+                    <>
+                      <div className="relative flex items-center py-0.5">
+                        <div className="flex-grow border-t border-zinc-200" />
+                        <span className="shrink-0 px-3 text-[11px] font-medium text-zinc-400">ou</span>
+                        <div className="flex-grow border-t border-zinc-200" />
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={loading || googleLoading}
+                        onClick={() => handleGoogleAuth(Boolean(salonName.trim() && phone.trim()))}
+                        className="w-full py-3 px-5 rounded-full bg-white hover:bg-[#F5F4F1] border border-zinc-200 text-[#142318] text-sm font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-3 cursor-pointer shadow-xs"
+                      >
+                        <GoogleOfficialIcon />
+                        <span>
+                          {googleLoading ? 'A ligar à conta Google...' : 'Registar com Google'}
+                        </span>
+                      </button>
+                    </>
+                  )}
 
                   <p className="text-xs text-zinc-500 text-center pt-1">
                     Já tem conta?{' '}

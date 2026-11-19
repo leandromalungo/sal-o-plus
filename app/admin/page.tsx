@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { LogOut, ExternalLink } from 'lucide-react';
 import { formatKz } from '@/lib/utils/time';
 import { ROLE_LABELS, type UserRole } from '@/lib/types/domain';
+import { googleSignOut } from '@/lib/auth/google-client';
 
 interface AdminPayload {
   indicators: {
@@ -77,6 +78,7 @@ export default function AdminPage() {
   }
 
   async function logout() {
+    await googleSignOut();
     await fetch('/api/auth/logout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
