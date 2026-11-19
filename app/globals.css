@@ -1,8 +1,21 @@
 @import "tailwindcss";
 
+@theme inline {
+  --font-display: var(--font-jakarta);
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-jetbrains);
+}
+
 @layer base {
   html,
   body {
     height: 100%;
+    background-color: #fafafc;
+    color: #18181b;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
