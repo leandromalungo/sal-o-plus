@@ -13,54 +13,116 @@ import {
   Settings,
   ExternalLink,
   LogOut,
-  Shield,
   Menu,
   X,
 } from 'lucide-react';
 import { ROLE_LABELS, type Salon, type SessionUser } from '@/lib/types/domain';
+import { AUTH_LAYERS, SALON_STAFF_LAYERS, type AuthLayer } from '@/lib/auth/layers';
 
 interface GestaoShellProps {
   title: string;
   children: (ctx: { user: SessionUser; salon: Salon | null }) => React.ReactNode;
 }
 
+const TAB_LAYER_KEY = 'salaomais_tab_layer';
+
+function isSalonStaffLayer(value: string | null): value is AuthLayer {
+  return value !== null && (SALON_STAFF_LAYERS as string[]).includes(value);
+}
+
 export default function GestaoShell({ title, children }: GestaoShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [activeLayer, setActiveLayer] = useState<AuthLayer>('gestao');
   const [salon, setSalon] = useState<Salon | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
-    fetch('/api/auth/me')
+    const params = new URLSearchParams(window.location.search);
+    const urlLayer = params.get('layer');
+    const storedLayer = window.sessionStorage.getItem(TAB_LAYER_KEY);
+    const preferredLayer = isSalonStaffLayer(urlLayer)
+      ? urlLayer
+      : isSalonStaffLayer(storedLayer)
+      ? storedLayer
+      : null;
+
+    if (preferredLayer) {
+      window.sessionStorage.setItem(TAB_LAYER_KEY, preferredLayer);
+    }
+
+    const meUrl = preferredLayer ? `/api/auth/me?layer=${preferredLayer}` : '/api/auth/me';
+    fetch(meUrl, {
+      headers: preferredLayer ? { 'x-salao-layer': preferredLayer } : undefined,
+    })
       .then(async (res) => {
         if (!res.ok) throw new Error('unauthorized');
         return res.json();
       })
       .then((json) => {
         if (!active) return;
+        const resolvedLayer: AuthLayer = isSalonStaffLayer(json.layer) ? json.layer : 'gestao';
         if (json.user?.role === 'SUPER_ADMIN' && !json.user?.salonId) {
-          router.replace('/admin');
+          router.replace('/login/admin');
           return;
         }
+        if (json.user?.role === 'PROFESSIONAL') {
+          const allowedProPaths = ['/gestao', '/gestao/agenda'];
+          if (!allowedProPaths.includes(window.location.pathname)) {
+            router.replace('/gestao/agenda');
+            return;
+          }
+        }
+        if (json.user?.role === 'RECEPTIONIST' && window.location.pathname === '/gestao/configuracoes') {
+          router.replace('/gestao/agenda');
+          return;
+        }
+        window.sessionStorage.setItem(TAB_LAYER_KEY, resolvedLayer);
+        setActiveLayer(resolvedLayer);
         setUser(json.user);
         setSalon(json.salon);
         setLoading(false);
       })
       .catch(() => {
         if (!active) return;
-        router.replace('/login');
+        router.replace(preferredLayer ? AUTH_LAYERS[preferredLayer].loginPath : '/login');
       });
     return () => {
       active = false;
     };
   }, [router]);
 
+  // Injeta x-salao-layer em chamadas /api/gestao/* desta aba para manter múltiplas camadas isoladas simultaneamente
+  useEffect(() => {
+    if (!user) return;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
+      if (url.startsWith('/api/gestao') || url.startsWith('/api/auth/')) {
+        const nextHeaders = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
+        if (!nextHeaders.has('x-salao-layer')) {
+          nextHeaders.set('x-salao-layer', activeLayer);
+        }
+        return originalFetch(input, { ...init, headers: nextHeaders });
+      }
+      return originalFetch(input, init);
+    };
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, [user, activeLayer]);
+
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layer: activeLayer }),
+    });
+    window.sessionStorage.removeItem(TAB_LAYER_KEY);
+    router.push(AUTH_LAYERS[activeLayer].loginPath);
   }
 
   if (loading || !user) {
@@ -88,12 +150,6 @@ export default function GestaoShell({ title, children }: GestaoShellProps) {
       label: 'Configurações',
       icon: Settings,
       visible: user.role === 'OWNER' || user.role === 'SUPER_ADMIN',
-    },
-    {
-      href: '/admin',
-      label: 'Admin Plataforma',
-      icon: Shield,
-      visible: user.role === 'SUPER_ADMIN',
     },
   ].filter((item) => item.visible);
 

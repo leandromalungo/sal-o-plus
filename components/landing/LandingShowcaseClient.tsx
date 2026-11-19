@@ -515,7 +515,7 @@ export default function LandingShowcaseClient() {
             </Link>
 
             <Link
-              href="/login"
+              href="#planos"
               className="group relative rounded-[20px] overflow-hidden aspect-[3/4] bg-zinc-900 flex flex-col justify-between p-5"
             >
               <img
@@ -556,7 +556,7 @@ export default function LandingShowcaseClient() {
             </h2>
           </div>
           <Link
-            href="/login?tab=register"
+            href="/login/gestao?tab=register"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#142318] text-white text-xs font-medium hover:bg-zinc-800 transition-colors self-start md:self-auto"
           >
             Registar o Meu Salão <ArrowUpRight className="w-3.5 h-3.5" />
@@ -581,7 +581,7 @@ export default function LandingShowcaseClient() {
               </ul>
             </div>
             <Link
-              href="/login?tab=register"
+              href="/login/gestao?tab=register"
               className="mt-7 block text-center py-2.5 px-4 rounded-full bg-white text-[#142318] text-sm font-medium hover:bg-zinc-100 transition-colors"
             >
               Criar conta do salão
@@ -607,7 +607,7 @@ export default function LandingShowcaseClient() {
               </ul>
             </div>
             <Link
-              href="/login?tab=register"
+              href="/login/gestao?tab=register"
               className="mt-7 block text-center py-2.5 px-4 rounded-full bg-[#142318] text-white text-sm font-medium hover:bg-zinc-800 transition-colors"
             >
               Registar salão agora
@@ -631,7 +631,7 @@ export default function LandingShowcaseClient() {
               </ul>
             </div>
             <Link
-              href="/login?tab=register"
+              href="/login/gestao?tab=register"
               className="mt-7 block text-center py-2.5 px-4 rounded-full bg-white text-[#142318] text-sm font-medium hover:bg-zinc-100 transition-colors"
             >
               Começar com Empresarial

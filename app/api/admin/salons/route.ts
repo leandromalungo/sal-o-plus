@@ -8,7 +8,7 @@ import type { SalonStatus } from '@/lib/types/domain';
 export async function GET() {
   try {
     ensureSeeded();
-    const user = await requireSessionUser();
+    const user = await requireSessionUser('admin');
     if (user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenError('Acesso restrito ao Super Admin da plataforma Salão+.');
     }
@@ -61,7 +61,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   try {
     ensureSeeded();
-    const user = await requireSessionUser();
+    const user = await requireSessionUser('admin');
     if (user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenError('Apenas o Super Admin pode gerir estabelecimentos da plataforma.');
     }

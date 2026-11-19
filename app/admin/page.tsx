@@ -52,7 +52,7 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     const res = await fetch('/api/admin/salons');
     if (res.status === 401) {
-      router.replace('/login');
+      router.replace('/login/admin');
       return;
     }
     const json = await res.json();
@@ -77,8 +77,12 @@ export default function AdminPage() {
   }
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layer: 'admin' }),
+    });
+    router.push('/login/admin');
   }
 
   return (

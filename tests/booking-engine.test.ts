@@ -15,6 +15,7 @@ import {
 } from '../lib/booking/engine.ts';
 import { recordAppointmentPayment } from '../lib/finance/service.ts';
 import { assertSalonIsolation, canAccessFinance, ForbiddenError } from '../lib/auth/rbac.ts';
+import { AUTH_LAYERS, getDefaultLayerForRole, isRoleAllowedInLayer } from '../lib/auth/layers.ts';
 import { addDays, getLuandaNow } from '../lib/utils/time.ts';
 
 function getNextTuesday(): string {
@@ -450,5 +451,23 @@ describe('Salão+ Motor de Agendamentos & Regras Críticas', () => {
       nowOverride: fifteenMinLater,
     });
     assert.equal(afterExpiry.appointment.status, 'CONFIRMED');
+  });
+
+  it('16. Camadas de login possuem cookies, rotas e permissões estritamente isoladas', () => {
+    const cookieNames = new Set(Object.values(AUTH_LAYERS).map((l) => l.cookieName));
+    const loginPaths = new Set(Object.values(AUTH_LAYERS).map((l) => l.loginPath));
+    assert.equal(cookieNames.size, 4);
+    assert.equal(loginPaths.size, 4);
+
+    assert.equal(getDefaultLayerForRole('OWNER'), 'gestao');
+    assert.equal(getDefaultLayerForRole('RECEPTIONIST'), 'recepcao');
+    assert.equal(getDefaultLayerForRole('PROFESSIONAL'), 'profissional');
+    assert.equal(getDefaultLayerForRole('SUPER_ADMIN'), 'admin');
+
+    assert.equal(isRoleAllowedInLayer('PROFESSIONAL', 'gestao'), false);
+    assert.equal(isRoleAllowedInLayer('OWNER', 'admin'), false);
+    assert.equal(isRoleAllowedInLayer('SUPER_ADMIN', 'recepcao'), false);
+    assert.equal(isRoleAllowedInLayer('RECEPTIONIST', 'recepcao'), true);
+    assert.equal(isRoleAllowedInLayer('PROFESSIONAL', 'profissional'), true);
   });
 });

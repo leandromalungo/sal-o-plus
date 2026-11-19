@@ -10,8 +10,8 @@ export async function GET(req: NextRequest) {
   try {
     ensureSeeded();
     const user = await requireSessionUser();
-    if (!user.salonId) {
-      return NextResponse.json({ error: 'Sem estabelecimento associado.' }, { status: 400 });
+    if (!user.salonId || !canManageBookings(user.role)) {
+      return NextResponse.json({ error: 'Sem permissão para consultar clientes.' }, { status: 403 });
     }
 
     const search = String(req.nextUrl.searchParams.get('q') || '').trim();

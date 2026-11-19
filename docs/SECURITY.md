@@ -1,8 +1,13 @@
 # Segurança, RBAC e Isolamento Multi-Tenant — Salão+
 
-## 1. Autenticação e Sessão
+## 1. Autenticação e Sessões Isoladas por Camada
 - Palavras-passe protegidas com **bcrypt** (`bcryptjs`).
-- Sessões baseadas em **cookies HTTP-only** (`salaomais_session`) assinados com **HMAC-SHA256** (`AUTH_SECRET`) e verificação resistente a ataques de temporização (`crypto.timingSafeEqual`).
+- Cada camada possui a sua própria tela de login, cookie HTTP-only isolado e validação de perfil no servidor:
+  - **Proprietária & Gerência (`/login/gestao`)** → `salaomais_session_gestao` (`OWNER`, `MANAGER`)
+  - **Receção & Balcão (`/login/recepcao`)** → `salaomais_session_recepcao` (`RECEPTIONIST`)
+  - **Profissional (`/login/profissional`)** → `salaomais_session_profissional` (`PROFESSIONAL`)
+  - **Super Admin (`/login/admin`)** → `salaomais_session_admin` (`SUPER_ADMIN`)
+- Sessões assinadas com **HMAC-SHA256** (`AUTH_SECRET`) incluindo `layer` no payload e verificação resistente a ataques de temporização (`crypto.timingSafeEqual`).
 - Validade de 7 dias por omissão com expiração validada no servidor a cada pedido.
 
 ## 2. Controlo de Acesso Baseado em Perfis (RBAC)

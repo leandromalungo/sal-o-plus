@@ -10,8 +10,8 @@ export async function GET() {
   try {
     ensureSeeded();
     const user = await requireSessionUser();
-    if (!user.salonId) {
-      return NextResponse.json({ error: 'Sem estabelecimento associado.' }, { status: 400 });
+    if (!user.salonId || !canManageSalonSettings(user.role)) {
+      throw new ForbiddenError('Apenas a proprietária pode consultar as configurações do salão.');
     }
 
     const db = getDb();

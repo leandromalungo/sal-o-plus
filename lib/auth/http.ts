@@ -4,12 +4,13 @@ import {
   getCurrentSessionUser,
   UnauthorizedError,
 } from './session.ts';
+import type { AuthLayer } from './layers.ts';
 import { BookingError } from '../booking/engine.ts';
 import { FinanceError } from '../finance/service.ts';
 import type { SessionUser } from '../types/domain.ts';
 
-export async function requireSessionUser(): Promise<SessionUser> {
-  const user = await getCurrentSessionUser();
+export async function requireSessionUser(explicitLayer?: AuthLayer): Promise<SessionUser> {
+  const user = await getCurrentSessionUser(explicitLayer);
   if (!user) {
     throw new UnauthorizedError();
   }

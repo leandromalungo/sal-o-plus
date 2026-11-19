@@ -1,13 +1,21 @@
-// Autenticação HMAC-SHA256 via cookies HTTP-only, RBAC e auditoria
+// Autenticação HMAC-SHA256 isolada por camada via cookies HTTP-only, RBAC e auditoria
 
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { getDb } from '../db/client.ts';
 import { ensureSeeded } from '../db/seed.ts';
 import type { SessionUser, UserRole } from '../types/domain.ts';
-
-export const SESSION_COOKIE_NAME = 'salaomais_session';
+import {
+  AUTH_LAYERS,
+  GESTAO_FALLBACK_LAYER_COOKIE,
+  SALON_STAFF_LAYERS,
+  getDefaultLayerForRole,
+  isRoleAllowedInLayer,
+  isValidAuthLayer,
+  type AuthLayer,
+} from './layers.ts';
+import { ForbiddenError } from './rbac.ts';
 
 function getSessionSecret(): string {
   return process.env.AUTH_SECRET || 'salaomais-luanda-session-key-change-in-production';
@@ -16,12 +24,16 @@ function getSessionSecret(): string {
 interface TokenPayload {
   uid: string;
   role: UserRole;
+  layer: AuthLayer;
   salonId: string | null;
   professionalId: string | null;
   exp: number;
 }
 
-export function signSessionToken(payload: Omit<TokenPayload, 'exp'>, ttlSeconds = 60 * 60 * 24 * 7): string {
+export function signSessionToken(
+  payload: Omit<TokenPayload, 'exp'>,
+  ttlSeconds = 60 * 60 * 24 * 7
+): string {
   const fullPayload: TokenPayload = {
     ...payload,
     exp: Math.floor(Date.now() / 1000) + ttlSeconds,
@@ -31,7 +43,10 @@ export function signSessionToken(payload: Omit<TokenPayload, 'exp'>, ttlSeconds 
   return `${encoded}.${sig}`;
 }
 
-export function verifySessionToken(token: string | undefined | null): TokenPayload | null {
+export function verifySessionToken(
+  token: string | undefined | null,
+  expectedLayer?: AuthLayer
+): TokenPayload | null {
   if (!token || !token.includes('.')) return null;
   const [encoded, sig] = token.split('.');
   if (!encoded || !sig) return null;
@@ -48,6 +63,12 @@ export function verifySessionToken(token: string | undefined | null): TokenPaylo
     if (!parsed.exp || parsed.exp < Math.floor(Date.now() / 1000)) {
       return null;
     }
+    if (!isValidAuthLayer(parsed.layer)) {
+      return null;
+    }
+    if (expectedLayer && parsed.layer !== expectedLayer) {
+      return null;
+    }
     return parsed;
   } catch {
     return null;
@@ -56,8 +77,9 @@ export function verifySessionToken(token: string | undefined | null): TokenPaylo
 
 export async function authenticateWithCredentials(
   email: string,
-  password: string
-): Promise<{ user: SessionUser; token: string } | null> {
+  password: string,
+  requestedLayer?: AuthLayer
+): Promise<{ user: SessionUser; token: string; layer: AuthLayer } | null> {
   ensureSeeded();
   const db = getDb();
 
@@ -88,6 +110,12 @@ export async function authenticateWithCredentials(
   const ok = bcrypt.compareSync(password, row.password_hash);
   if (!ok) return null;
 
+  const targetLayer = requestedLayer ?? getDefaultLayerForRole(row.role);
+
+  if (!isRoleAllowedInLayer(row.role, targetLayer)) {
+    throw new ForbiddenError('Acesso não autorizado para este portal.');
+  }
+
   const user: SessionUser = {
     id: row.id,
     email: row.email,
@@ -101,15 +129,19 @@ export async function authenticateWithCredentials(
   const token = signSessionToken({
     uid: user.id,
     role: user.role,
+    layer: targetLayer,
     salonId: user.salonId,
     professionalId: user.professionalId,
   });
 
-  return { user, token };
+  return { user, token, layer: targetLayer };
 }
 
-export function loadUserFromToken(token: string | undefined | null): SessionUser | null {
-  const payload = verifySessionToken(token);
+export function loadUserFromToken(
+  token: string | undefined | null,
+  expectedLayer?: AuthLayer
+): { user: SessionUser; layer: AuthLayer } | null {
+  const payload = verifySessionToken(token, expectedLayer);
   if (!payload) return null;
 
   ensureSeeded();
@@ -137,21 +169,62 @@ export function loadUserFromToken(token: string | undefined | null): SessionUser
     | undefined;
 
   if (!row || !row.is_active) return null;
+  if (!isRoleAllowedInLayer(row.role, payload.layer)) return null;
+
   return {
-    id: row.id,
-    email: row.email,
-    name: row.name,
-    phone: row.phone,
-    role: row.role,
-    salonId: row.salon_id,
-    professionalId: row.professional_id,
+    layer: payload.layer,
+    user: {
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      phone: row.phone,
+      role: row.role,
+      salonId: row.salon_id,
+      professionalId: row.professional_id,
+    },
   };
 }
 
-export async function getCurrentSessionUser(): Promise<SessionUser | null> {
+export async function getCurrentSessionWithLayer(
+  explicitLayer?: AuthLayer
+): Promise<{ user: SessionUser; layer: AuthLayer } | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  return loadUserFromToken(token);
+
+  // 1. Camada explícita (ex.: 'admin' nas rotas /api/admin/* ou query/header explícito)
+  if (explicitLayer) {
+    const token = cookieStore.get(AUTH_LAYERS[explicitLayer].cookieName)?.value;
+    return loadUserFromToken(token, explicitLayer);
+  }
+
+  // 2. Header x-salao-layer enviado pela aba atual (garante múltiplas abas isoladas sem colisão)
+  const reqHeaders = await headers();
+  const headerLayer = reqHeaders.get('x-salao-layer');
+  if (isValidAuthLayer(headerLayer) && SALON_STAFF_LAYERS.includes(headerLayer)) {
+    const token = cookieStore.get(AUTH_LAYERS[headerLayer].cookieName)?.value;
+    return loadUserFromToken(token, headerLayer);
+  }
+
+  // 3. Fallback apenas entre camadas do salão (nunca mistura com 'admin')
+  const fallbackLayer = cookieStore.get(GESTAO_FALLBACK_LAYER_COOKIE)?.value;
+  if (isValidAuthLayer(fallbackLayer) && SALON_STAFF_LAYERS.includes(fallbackLayer)) {
+    const token = cookieStore.get(AUTH_LAYERS[fallbackLayer].cookieName)?.value;
+    const loaded = loadUserFromToken(token, fallbackLayer);
+    if (loaded) return loaded;
+  }
+
+  // 4. Procura primeira sessão válida de salão
+  for (const staffLayer of SALON_STAFF_LAYERS) {
+    const token = cookieStore.get(AUTH_LAYERS[staffLayer].cookieName)?.value;
+    const loaded = loadUserFromToken(token, staffLayer);
+    if (loaded) return loaded;
+  }
+
+  return null;
+}
+
+export async function getCurrentSessionUser(explicitLayer?: AuthLayer): Promise<SessionUser | null> {
+  const result = await getCurrentSessionWithLayer(explicitLayer);
+  return result?.user ?? null;
 }
 
 export {

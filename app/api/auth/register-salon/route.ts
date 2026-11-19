@@ -3,7 +3,8 @@ import bcrypt from 'bcryptjs';
 import { NextRequest, NextResponse } from 'next/server';
 import { runInTransaction } from '@/lib/db/client';
 import { ensureSeeded } from '@/lib/db/seed';
-import { signSessionToken, SESSION_COOKIE_NAME } from '@/lib/auth/session';
+import { signSessionToken } from '@/lib/auth/session';
+import { AUTH_LAYERS, GESTAO_FALLBACK_LAYER_COOKIE } from '@/lib/auth/layers';
 import { handleApiError } from '@/lib/auth/http';
 import { addDays, getLuandaNow } from '@/lib/utils/time';
 
@@ -120,14 +121,26 @@ export async function POST(req: NextRequest) {
     const token = signSessionToken({
       uid: created.user.id,
       role: created.user.role,
+      layer: 'gestao',
       salonId: created.user.salonId,
       professionalId: null,
     });
 
-    const response = NextResponse.json(created, { status: 201 });
-    response.cookies.set(SESSION_COOKIE_NAME, token, {
+    const isHttps =
+      req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
+
+    const response = NextResponse.json({ ...created, layer: 'gestao' }, { status: 201 });
+    response.cookies.set(AUTH_LAYERS.gestao.cookieName, token, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: isHttps,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+    response.cookies.set(GESTAO_FALLBACK_LAYER_COOKIE, 'gestao', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isHttps,
       path: '/',
       maxAge: 60 * 60 * 24 * 7,
     });
