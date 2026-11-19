@@ -5,8 +5,11 @@ import { runInTransaction } from '@/lib/db/client';
 import { ensureSeeded } from '@/lib/db/seed';
 import { signSessionToken } from '@/lib/auth/session';
 import { AUTH_LAYERS, GESTAO_FALLBACK_LAYER_COOKIE } from '@/lib/auth/layers';
+import { getAuthCookieOptions, isHttpsRequest } from '@/lib/auth/cookies';
 import { handleApiError } from '@/lib/auth/http';
 import { addDays, getLuandaNow } from '@/lib/utils/time';
+
+export const dynamic = 'force-dynamic';
 
 function slugify(value: string): string {
   return value
@@ -97,7 +100,7 @@ export async function POST(req: NextRequest) {
       ).run(`np_${crypto.randomUUID()}`, salonId);
 
       db.prepare(
-        'INSERT INTO users (id, email, password_hash, name, phone, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)'
+        "INSERT INTO users (id, email, password_hash, auth_provider, name, phone, is_active, created_at) VALUES (?, ?, ?, 'PASSWORD', ?, ?, 1, ?)"
       ).run(userId, email, hash, ownerName, phone, now.iso);
 
       db.prepare(
@@ -126,24 +129,11 @@ export async function POST(req: NextRequest) {
       professionalId: null,
     });
 
-    const isHttps =
-      req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
+    const cookieOptions = getAuthCookieOptions(isHttpsRequest(req));
 
     const response = NextResponse.json({ ...created, layer: 'gestao' }, { status: 201 });
-    response.cookies.set(AUTH_LAYERS.gestao.cookieName, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isHttps,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-    response.cookies.set(GESTAO_FALLBACK_LAYER_COOKIE, 'gestao', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isHttps,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    response.cookies.set(AUTH_LAYERS.gestao.cookieName, token, cookieOptions);
+    response.cookies.set(GESTAO_FALLBACK_LAYER_COOKIE, 'gestao', cookieOptions);
     return response;
   } catch (error) {
     if (error instanceof Error && error.message.includes('Já existe uma conta')) {

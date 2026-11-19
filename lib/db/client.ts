@@ -100,6 +100,7 @@ function applySchema(db: DatabaseSync): void {
       id TEXT PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
+      auth_provider TEXT NOT NULL DEFAULT 'PASSWORD',
       name TEXT NOT NULL,
       phone TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
@@ -455,6 +456,12 @@ function applySchema(db: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_audit_logs_salon ON audit_logs(salon_id, created_at);
   `);
+
+  const userColumns = db.prepare('PRAGMA table_info(users)').all() as Array<{ name?: string }>;
+  const hasAuthProvider = userColumns.some((col) => col.name === 'auth_provider');
+  if (!hasAuthProvider) {
+    db.exec("ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'PASSWORD';");
+  }
 }
 
 export function getDb(): DatabaseSync {

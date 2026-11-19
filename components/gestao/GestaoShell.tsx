@@ -79,6 +79,8 @@ export default function GestaoShell({ title, pendingCount, children }: GestaoShe
 
     const meUrl = preferredLayer ? `/api/auth/me?layer=${preferredLayer}` : '/api/auth/me';
     fetch(meUrl, {
+      credentials: 'include',
+      cache: 'no-store',
       headers: preferredLayer ? { 'x-salao-layer': preferredLayer } : undefined,
     })
       .then(async (res) => {
@@ -134,7 +136,11 @@ export default function GestaoShell({ title, pendingCount, children }: GestaoShe
         if (!nextHeaders.has('x-salao-layer')) {
           nextHeaders.set('x-salao-layer', activeLayer);
         }
-        return originalFetch(input, { ...init, headers: nextHeaders });
+        return originalFetch(input, {
+          credentials: 'include',
+          ...init,
+          headers: nextHeaders,
+        });
       }
       return originalFetch(input, init);
     };
@@ -147,6 +153,7 @@ export default function GestaoShell({ title, pendingCount, children }: GestaoShe
     await googleSignOut();
     await fetch('/api/auth/logout', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ layer: activeLayer }),
     });

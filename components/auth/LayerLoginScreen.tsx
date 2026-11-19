@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -71,7 +71,6 @@ function mapGooglePopupError(err: unknown): string {
 
 function LayerLoginInner({ layer }: { layer: AuthLayer }) {
   const meta = AUTH_LAYERS[layer];
-  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab =
     meta.allowRegistration && searchParams.get('tab') === 'register' ? 'register' : 'login';
@@ -91,12 +90,13 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
   const [googleProfile, setGoogleProfile] = useState<{ email: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function finishLoginNavigation() {
-    if (layer !== 'admin') {
-      window.sessionStorage.setItem('salaomais_tab_layer', layer);
-      router.push(`${meta.redirectPath}?layer=${layer}`);
+  function finishLoginNavigation(targetLayer: AuthLayer = layer, customRedirectPath?: string) {
+    if (targetLayer !== 'admin') {
+      window.sessionStorage.setItem('salaomais_tab_layer', targetLayer);
+      const basePath = customRedirectPath || meta.redirectPath;
+      window.location.assign(`${basePath}?layer=${targetLayer}`);
     } else {
-      router.push(meta.redirectPath);
+      window.location.assign(customRedirectPath || meta.redirectPath);
     }
   }
 
@@ -107,8 +107,9 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, layer }),
+        body: JSON.stringify({ email: email.trim(), password, layer }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -116,7 +117,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
         setLoading(false);
         return;
       }
-      finishLoginNavigation();
+      finishLoginNavigation(layer, typeof data.redirectPath === 'string' ? data.redirectPath : undefined);
     } catch {
       setError('Erro de ligação ao servidor.');
       setLoading(false);
@@ -136,16 +137,18 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
 
     const res = await fetch('/api/auth/google', {
       method: 'POST',
+      credentials: 'include',
       headers,
       body: JSON.stringify({
         layer,
         idToken: params.idToken,
         ...(params.includeSalonFields
           ? {
-              salonName,
-              ownerName,
+              salonName: salonName.trim(),
+              ownerName: ownerName.trim(),
               phone: fullPhone,
-              address,
+              address: address.trim(),
+              ...(password ? { password } : {}),
             }
           : {}),
       }),
@@ -173,7 +176,10 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
       return;
     }
 
-    finishLoginNavigation();
+    finishLoginNavigation(
+      typeof data.layer === 'string' ? (data.layer as AuthLayer) : layer,
+      typeof data.redirectPath === 'string' ? data.redirectPath : undefined
+    );
   }
 
   async function handleGoogleAuth(includeSalonFields: boolean) {
@@ -227,14 +233,15 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
     try {
       const res = await fetch('/api/auth/register-salon', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          salonName,
-          ownerName,
-          email,
+          salonName: salonName.trim(),
+          ownerName: ownerName.trim(),
+          email: email.trim(),
           phone: fullPhone,
           password,
-          address,
+          address: address.trim(),
         }),
       });
       const data = await res.json();
@@ -243,8 +250,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
         setLoading(false);
         return;
       }
-      window.sessionStorage.setItem('salaomais_tab_layer', 'gestao');
-      router.push('/gestao?layer=gestao');
+      finishLoginNavigation('gestao', '/gestao');
     } catch {
       setError('Erro de ligação ao servidor.');
       setLoading(false);
@@ -255,6 +261,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
     await googleSignOut();
     setGoogleProfile(null);
     setEmail('');
+    setPassword('');
     setError(null);
   }
 
@@ -371,6 +378,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                   onClick={() => {
                     setTab('login');
                     setError(null);
+                    setPassword('');
                   }}
                   className={`px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                     tab === 'login' ? 'bg-white text-[#142318] shadow-xs' : 'text-zinc-600'
@@ -383,6 +391,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                   onClick={() => {
                     setTab('register');
                     setError(null);
+                    setPassword('');
                   }}
                   className={`px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                     tab === 'register' ? 'bg-white text-[#142318] shadow-xs' : 'text-zinc-600'
@@ -505,6 +514,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                         onClick={() => {
                           setTab('register');
                           setError(null);
+                          setPassword('');
                         }}
                         className="font-semibold text-[#142318] underline underline-offset-2 hover:opacity-80 cursor-pointer"
                       >
@@ -634,32 +644,32 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                     </div>
                   </div>
 
-                  {!googleProfile && (
-                    <div>
-                      <label className="block text-xs font-medium text-[#142318] mb-1.5">
-                        Palavra-passe
-                      </label>
-                      <div className="flex items-center justify-between bg-[#F5F4F1] rounded-xl px-4 py-2.5 border border-transparent focus-within:border-[#A8DF1A] focus-within:bg-white transition-colors">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          minLength={6}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Mínimo 6 caracteres"
-                          className="w-full text-sm text-[#142318] placeholder:text-zinc-400 bg-transparent outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((v) => !v)}
-                          aria-label={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
-                          className="text-zinc-400 hover:text-[#142318] ml-2 shrink-0 cursor-pointer"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#142318] mb-1.5">
+                      {googleProfile
+                        ? 'Palavra-passe (opcional — para entrar também por e-mail)'
+                        : 'Palavra-passe'}
+                    </label>
+                    <div className="flex items-center justify-between bg-[#F5F4F1] rounded-xl px-4 py-2.5 border border-transparent focus-within:border-[#A8DF1A] focus-within:bg-white transition-colors">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required={!googleProfile}
+                        minLength={googleProfile ? undefined : 6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Mínimo 6 caracteres"
+                        className="w-full text-sm text-[#142318] placeholder:text-zinc-400 bg-transparent outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
+                        className="text-zinc-400 hover:text-[#142318] ml-2 shrink-0 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
-                  )}
+                  </div>
 
                   <button
                     type="submit"
@@ -703,6 +713,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                       onClick={() => {
                         setTab('login');
                         setError(null);
+                        setPassword('');
                       }}
                       className="font-semibold text-[#142318] underline underline-offset-2 hover:opacity-80 cursor-pointer"
                     >

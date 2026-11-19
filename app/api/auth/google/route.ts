@@ -15,10 +15,13 @@ import {
   isRoleAllowedInLayer,
   isValidAuthLayer,
 } from '@/lib/auth/layers';
+import { getAuthCookieOptions, isHttpsRequest } from '@/lib/auth/cookies';
 import { handleApiError } from '@/lib/auth/http';
 import { verifyGoogleIdentity } from '@/lib/auth/google-server';
 import type { SessionUser, UserRole } from '@/lib/types/domain';
 import { addDays, getLuandaNow } from '@/lib/utils/time';
+
+export const dynamic = 'force-dynamic';
 
 function slugify(value: string): string {
   return value
@@ -35,25 +38,12 @@ function attachLayerCookies(
   layer: keyof typeof AUTH_LAYERS,
   token: string
 ) {
-  const isHttps =
-    req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
+  const cookieOptions = getAuthCookieOptions(isHttpsRequest(req));
 
-  response.cookies.set(AUTH_LAYERS[layer].cookieName, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: isHttps,
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  response.cookies.set(AUTH_LAYERS[layer].cookieName, token, cookieOptions);
 
   if (layer !== 'admin') {
-    response.cookies.set(GESTAO_FALLBACK_LAYER_COOKIE, layer, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isHttps,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    response.cookies.set(GESTAO_FALLBACK_LAYER_COOKIE, layer, cookieOptions);
   }
 }
 
@@ -179,6 +169,14 @@ export async function POST(req: NextRequest) {
     const phone = String(body.phone || '').trim();
     const ownerName = String(body.ownerName || identity.name).trim() || identity.name;
     const address = String(body.address || 'Luanda, Angola').trim() || 'Luanda, Angola';
+    const optionalPassword = typeof body.password === 'string' ? body.password : '';
+
+    if (optionalPassword && optionalPassword.length < 6) {
+      return NextResponse.json(
+        { error: 'A palavra-passe opcional deve ter pelo menos 6 caracteres.' },
+        { status: 400 }
+      );
+    }
 
     if (!salonName || !phone) {
       return NextResponse.json({
@@ -210,8 +208,10 @@ export async function POST(req: NextRequest) {
       const salonId = `salon_${crypto.randomUUID()}`;
       const userId = `user_${crypto.randomUUID()}`;
       const memberId = `mem_${crypto.randomUUID()}`;
-      const unusableSecret = crypto.randomBytes(32).toString('hex');
-      const hash = bcrypt.hashSync(unusableSecret, 10);
+      const hasPassword = optionalPassword.length >= 6;
+      const authProvider = hasPassword ? 'BOTH' : 'GOOGLE';
+      const secretSource = hasPassword ? optionalPassword : crypto.randomBytes(32).toString('hex');
+      const hash = bcrypt.hashSync(secretSource, 10);
 
       txDb
         .prepare(
@@ -264,9 +264,9 @@ export async function POST(req: NextRequest) {
 
       txDb
         .prepare(
-          'INSERT INTO users (id, email, password_hash, name, phone, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)'
+          'INSERT INTO users (id, email, password_hash, auth_provider, name, phone, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?)'
         )
-        .run(userId, identity.email, hash, ownerName, phone, now.iso);
+        .run(userId, identity.email, hash, authProvider, ownerName, phone, now.iso);
 
       txDb
         .prepare(

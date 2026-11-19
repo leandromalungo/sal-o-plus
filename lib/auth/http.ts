@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   ForbiddenError,
   getCurrentSessionUser,
+  GoogleOnlyAccountError,
   UnauthorizedError,
 } from './session.ts';
 import type { AuthLayer } from './layers.ts';
@@ -18,7 +19,7 @@ export async function requireSessionUser(explicitLayer?: AuthLayer): Promise<Ses
 }
 
 export function handleApiError(error: unknown) {
-  if (error instanceof UnauthorizedError) {
+  if (error instanceof UnauthorizedError || error instanceof GoogleOnlyAccountError) {
     return NextResponse.json({ error: error.message }, { status: 401 });
   }
   if (error instanceof ForbiddenError) {

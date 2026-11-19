@@ -5,6 +5,8 @@ import { getDb } from '@/lib/db/client';
 import { ensureSeeded } from '@/lib/db/seed';
 import { mapSalonRow } from '@/lib/booking/engine';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   ensureSeeded();
   const queryLayer = req.nextUrl.searchParams.get('layer');

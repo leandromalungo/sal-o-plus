@@ -5,7 +5,10 @@ import {
   GESTAO_FALLBACK_LAYER_COOKIE,
   isValidAuthLayer,
 } from '@/lib/auth/layers';
+import { getAuthCookieOptions, isHttpsRequest } from '@/lib/auth/cookies';
 import { handleApiError } from '@/lib/auth/http';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
@@ -53,25 +56,11 @@ export async function POST(req: NextRequest) {
       redirectPath: layerMeta.redirectPath,
     });
 
-    const isHttps =
-      req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
-
-    response.cookies.set(layerMeta.cookieName, result.token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isHttps,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    const cookieOptions = getAuthCookieOptions(isHttpsRequest(req));
+    response.cookies.set(layerMeta.cookieName, result.token, cookieOptions);
 
     if (result.layer !== 'admin') {
-      response.cookies.set(GESTAO_FALLBACK_LAYER_COOKIE, result.layer, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: isHttps,
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7,
-      });
+      response.cookies.set(GESTAO_FALLBACK_LAYER_COOKIE, result.layer, cookieOptions);
     }
 
     return response;

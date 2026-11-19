@@ -75,6 +75,15 @@ export function verifySessionToken(
   }
 }
 
+export class GoogleOnlyAccountError extends Error {
+  status = 401;
+  constructor(
+    message = 'Esta conta foi criada com o Google. Clique em «Continuar com Google» para iniciar sessão.'
+  ) {
+    super(message);
+  }
+}
+
 export async function authenticateWithCredentials(
   email: string,
   password: string,
@@ -85,7 +94,7 @@ export async function authenticateWithCredentials(
 
   const row = db
     .prepare(
-      `SELECT u.id, u.email, u.password_hash, u.name, u.phone, u.is_active,
+      `SELECT u.id, u.email, u.password_hash, u.auth_provider, u.name, u.phone, u.is_active,
               m.role, m.salon_id, m.professional_id
        FROM users u
        JOIN salon_members m ON m.user_id = u.id AND m.is_active = 1
@@ -97,6 +106,7 @@ export async function authenticateWithCredentials(
         id: string;
         email: string;
         password_hash: string;
+        auth_provider?: string;
         name: string;
         phone: string | null;
         is_active: number;
@@ -107,6 +117,9 @@ export async function authenticateWithCredentials(
     | undefined;
 
   if (!row || !row.is_active) return null;
+  if (row.auth_provider === 'GOOGLE') {
+    throw new GoogleOnlyAccountError();
+  }
   const ok = bcrypt.compareSync(password, row.password_hash);
   if (!ok) return null;
 
