@@ -259,11 +259,11 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#142318] flex items-center justify-center p-3 sm:p-6 lg:p-10">
-      <div className="w-full max-w-[1140px] rounded-[30px] bg-white p-3 sm:p-4 shadow-2xl grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        {/* Painel Esquerdo: Identidade Visual da Camada Atual (sem expor outras camadas) */}
+    <div className="min-h-screen bg-[#142318] flex items-center justify-center p-4 sm:p-6 lg:p-10">
+      <div className="w-full max-w-[540px] lg:max-w-[1140px] rounded-[26px] lg:rounded-[30px] bg-white p-4 sm:p-6 lg:p-4 shadow-2xl grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+        {/* Painel Esquerdo: Identidade Visual da Camada Atual (oculto em telas menores para exibir apenas o formulário) */}
         <section
-          className="lg:col-span-5 rounded-[24px] p-6 sm:p-8 flex flex-col justify-between text-white relative overflow-hidden min-h-[500px] lg:min-h-[640px]"
+          className="hidden lg:flex lg:col-span-5 rounded-[24px] p-8 flex-col justify-between text-white relative overflow-hidden lg:min-h-[640px]"
           style={{
             background:
               'radial-gradient(circle at 82% 24%, rgba(168, 223, 26, 0.36) 0%, rgba(28, 63, 37, 0.92) 45%, #142318 100%)',
@@ -354,11 +354,11 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
         </section>
 
         {/* Painel Direito: Formulário Limpo de Produção + Google Sign-In Oficial */}
-        <section className="lg:col-span-7 px-3 sm:px-8 lg:px-12 py-4 sm:py-6 flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-4">
+        <section className="lg:col-span-7 px-1 sm:px-4 lg:px-12 py-2 sm:py-4 lg:py-6 flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-3">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-[#142318] transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-[#142318] transition-colors shrink-0"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Voltar ao início
@@ -372,7 +372,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                     setTab('login');
                     setError(null);
                   }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                  className={`px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                     tab === 'login' ? 'bg-white text-[#142318] shadow-xs' : 'text-zinc-600'
                   }`}
                 >
@@ -384,7 +384,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                     setTab('register');
                     setError(null);
                   }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                  className={`px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                     tab === 'register' ? 'bg-white text-[#142318] shadow-xs' : 'text-zinc-600'
                   }`}
                 >
@@ -394,7 +394,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
             )}
           </div>
 
-          <div className="my-auto py-8 max-w-md w-full mx-auto">
+          <div className="my-auto py-6 sm:py-8 max-w-md w-full mx-auto">
             <h2 className="font-[family-name:var(--font-jakarta)] text-2xl sm:text-[28px] font-semibold tracking-tight text-[#142318] text-center">
               {tab === 'register'
                 ? googleProfile
