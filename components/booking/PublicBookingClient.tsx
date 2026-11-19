@@ -4,14 +4,18 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Calendar,
+  CalendarCheck2,
+  Check,
+  ChevronLeft,
   Clock,
   MapPin,
   Phone,
-  CheckCircle2,
   AlertCircle,
   UserCheck,
   Search,
   RefreshCw,
+  SlidersHorizontal,
+  RotateCcw,
 } from 'lucide-react';
 import { DAY_NAMES_PT, formatDatePt, formatKz } from '@/lib/utils/time';
 import { STATUS_LABELS, type AppointmentStatus } from '@/lib/types/domain';
@@ -103,6 +107,8 @@ interface LookupAppointment {
   services: Array<{ service_id: string; service_name: string; price_kz: number; duration_minutes: number }>;
 }
 
+const DEFAULT_SALON_COVER = '/images/salon_studio_cover_1795068461036.jpg';
+
 export default function PublicBookingClient({ slug }: { slug: string }) {
   const [data, setData] = useState<PublicSalonPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -126,6 +132,7 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<BookingReceipt | null>(null);
+  const [lastBookedServices, setLastBookedServices] = useState<string[]>([]);
 
   // Estado de consulta / reagendamento / cancelamento
   const [lookupCode, setLookupCode] = useState('');
@@ -137,6 +144,15 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
   const [rescheduleSlots, setRescheduleSlots] = useState<SlotItem[]>([]);
   const [rescheduleTime, setRescheduleTime] = useState('');
   const [manageFeedback, setManageFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const codeParam = params.get('codigo')?.trim();
+    if (codeParam) {
+      setLookupCode(codeParam.toUpperCase());
+      setActiveTab('manage');
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -230,11 +246,31 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
     };
   }, [data, selectedServiceIds]);
 
+  const selectedSlotInfo = useMemo(
+    () => slots.find((s) => s.time === selectedTime) || null,
+    [slots, selectedTime]
+  );
+
+  const selectedProfessionalLabel = useMemo(() => {
+    if (!data) return 'Qualquer disponível';
+    if (selectedProfessionalId === 'any') return 'Qualquer profissional disponível';
+    return data.professionals.find((p) => p.id === selectedProfessionalId)?.name || 'Qualquer disponível';
+  }, [data, selectedProfessionalId]);
+
   function toggleService(id: string) {
     setSelectedServiceIds((prev) =>
       prev.includes(id) ? (prev.length > 1 ? prev.filter((item) => item !== id) : prev) : [...prev, id]
     );
     setSelectedTime('');
+  }
+
+  function handleResetSelection() {
+    if (!data) return;
+    setSelectedServiceIds(data.services.length > 0 ? [data.services[0].id] : []);
+    setSelectedProfessionalId('any');
+    setSelectedDate(data.suggestedDate);
+    setSelectedTime('');
+    setSubmitError(null);
   }
 
   async function handleConfirmBooking(e: React.FormEvent) {
@@ -245,6 +281,7 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
     }
     setSubmitting(true);
     setSubmitError(null);
+    const chosenNames = [...selectedServicesSummary.names];
     try {
       const res = await fetch(`/api/public/salons/${slug}/bookings`, {
         method: 'POST',
@@ -268,6 +305,7 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
         setSubmitting(false);
         return;
       }
+      setLastBookedServices(chosenNames);
       setReceipt(json as BookingReceipt);
       setSelectedTime('');
       await fetchAvailability();
@@ -341,7 +379,6 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
             ? 'Reserva confirmada definitivamente.'
             : 'Marcação reagendada com sucesso.'
         );
-        // Atualiza dados da consulta
         const refresh = await fetch(
           `/api/public/salons/${slug}/bookings?${new URLSearchParams({
             code: foundBooking.bookingCode,
@@ -360,12 +397,19 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-[#fafafc] flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white border border-zinc-200 rounded-xl p-6 text-center space-y-3">
-          <AlertCircle className="w-8 h-8 text-red-600 mx-auto" />
-          <h1 className="text-lg font-semibold text-zinc-900">Página indisponível</h1>
+      <div className="min-h-screen bg-[#F3F4F0] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-[32px] p-8 text-center space-y-4 shadow-sm border border-zinc-200/60">
+          <div className="w-12 h-12 rounded-full bg-[#F4F4F2] flex items-center justify-center mx-auto">
+            <AlertCircle className="w-6 h-6 text-red-600" />
+          </div>
+          <h1 className="font-[family-name:var(--font-jakarta)] text-xl font-bold text-zinc-900">
+            Página indisponível
+          </h1>
           <p className="text-sm text-zinc-600">{loadError}</p>
-          <Link href="/" className="inline-block text-sm font-medium text-violet-700 hover:underline">
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full bg-[#11693B] text-white hover:bg-[#0D542F] transition-colors"
+          >
             Voltar ao Salão+
           </Link>
         </div>
@@ -375,200 +419,148 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-[#fafafc] flex items-center justify-center p-6">
-        <p className="text-sm text-zinc-500">A carregar agenda e serviços do salão...</p>
+      <div className="min-h-screen bg-[#F3F4F0] flex items-center justify-center p-6">
+        <div className="bg-white rounded-[32px] px-8 py-6 shadow-sm border border-zinc-200/60 flex items-center gap-3">
+          <RefreshCw className="w-4 h-4 text-[#11693B] animate-spin" />
+          <p className="text-sm text-zinc-600">A carregar agenda e serviços do salão...</p>
+        </div>
       </div>
     );
   }
 
   const { salon, categories, services, workingHours } = data;
+  const coverImage = salon.coverUrl || DEFAULT_SALON_COVER;
 
   return (
-    <div className="min-h-screen bg-[#fafafc] text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <Link href="/" className="text-xs font-medium text-zinc-500 hover:text-zinc-900 whitespace-nowrap">
-              Salão+
-            </Link>
-            <span className="text-zinc-300">/</span>
-            <span className="font-[family-name:var(--font-jakarta)] font-semibold text-zinc-900 truncate">
-              {salon.name}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1 p-1 bg-zinc-100 rounded-lg shrink-0">
-            <button
-              type="button"
-              onClick={() => setActiveTab('book')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
-                activeTab === 'book' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
-              }`}
-            >
-              Nova Marcação
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('manage')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
-                activeTab === 'manage' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-600 hover:text-zinc-900'
-              }`}
-            >
-              Gerir Marcação
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-        {/* Cabeçalho do salão */}
-        <section className="bg-white border border-zinc-200 rounded-xl overflow-hidden grid grid-cols-1 md:grid-cols-12 items-stretch">
-          <div className="md:col-span-5 h-52 md:h-auto bg-zinc-100">
-            <img
-              src={salon.coverUrl || '/images/salon_studio_cover_1795068461036.jpg'}
-              alt={salon.name}
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="md:col-span-7 p-6 flex flex-col justify-between space-y-4">
-            <div>
-              <h1 className="font-[family-name:var(--font-jakarta)] text-2xl font-bold text-zinc-900">
-                {salon.name}
-              </h1>
-              <p className="text-sm text-zinc-600 mt-1.5 leading-relaxed">{salon.description}</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-zinc-100 text-xs text-zinc-600">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-violet-700 shrink-0" />
-                <span>{salon.address}, {salon.city}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-violet-700 shrink-0" />
-                <span className="font-mono">{salon.phone}</span>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-500">
-              {workingHours
-                .filter((w) => w.is_open === 1)
-                .slice(0, 3)
-                .map((w) => (
-                  <span key={w.day_of_week}>
-                    {DAY_NAMES_PT[w.day_of_week].slice(0, 3)}: {w.open_time}–{w.close_time}
-                  </span>
-                ))}
-              <span>· Antecedência mín. {salon.minAdvanceHours}h</span>
-            </div>
-          </div>
-        </section>
-
-        {salon.isTemporarilyClosed && (
-          <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-            <span>{salon.closureReason || 'Este estabelecimento encontra-se temporariamente encerrado para marcações.'}</span>
-          </div>
-        )}
-
+    <div className="min-h-screen bg-[#F3F4F0] text-zinc-900 py-4 sm:py-8 px-3 sm:px-6">
+      <div className="max-w-5xl mx-auto">
         {activeTab === 'manage' ? (
-          <section className="bg-white border border-zinc-200 rounded-xl p-6 space-y-6">
-            <div>
-              <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-semibold text-zinc-900">
-                Consultar, reagendar ou cancelar marcação
-              </h2>
-              <p className="text-sm text-zinc-600 mt-1">
-                Introduza o código recebido na confirmação e o seu número de telefone.
+          /* Ecrã de Consulta / Gestão (inspirado no cartão direito da referência) */
+          <section className="max-w-xl mx-auto bg-white rounded-[32px] p-6 sm:p-8 shadow-sm border border-zinc-200/60 space-y-6">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setActiveTab('book')}
+                aria-label="Voltar à marcação"
+                className="w-10 h-10 rounded-full bg-[#F4F4F2] hover:bg-[#EAECE7] text-zinc-800 flex items-center justify-center transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <span className="text-xs font-medium text-zinc-500 truncate px-2">{salon.name}</span>
+              <Link
+                href="/"
+                className="text-xs font-medium text-[#11693B] hover:underline whitespace-nowrap"
+              >
+                Início
+              </Link>
+            </div>
+
+            <div className="text-center space-y-2 pt-1">
+              <div className="w-11 h-11 rounded-2xl bg-[#E8F3EC] text-[#11693B] flex items-center justify-center mx-auto">
+                <CalendarCheck2 className="w-5 h-5" />
+              </div>
+              <h1 className="font-[family-name:var(--font-jakarta)] text-xl font-bold text-zinc-900">
+                Detalhes e Gestão da Marcação
+              </h1>
+              <p className="text-sm text-zinc-500 max-w-sm mx-auto">
+                Introduza o código recebido na confirmação e o seu telefone para consultar, reagendar ou cancelar.
               </p>
             </div>
 
-            <form onSubmit={handleLookup} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <input
-                type="text"
-                required
-                value={lookupCode}
-                onChange={(e) => setLookupCode(e.target.value)}
-                placeholder="Código (ex.: SL-9088)"
-                className="px-3.5 py-2.5 text-sm border border-zinc-200 rounded-lg font-mono uppercase"
-              />
-              <input
-                type="tel"
-                required
-                value={lookupPhone}
-                onChange={(e) => setLookupPhone(e.target.value)}
-                placeholder="Telefone (+244 9...)"
-                className="px-3.5 py-2.5 text-sm border border-zinc-200 rounded-lg"
-              />
+            <form onSubmit={handleLookup} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  required
+                  value={lookupCode}
+                  onChange={(e) => setLookupCode(e.target.value)}
+                  placeholder="Código (ex.: SL-9088)"
+                  className="w-full px-4 py-3 text-sm bg-[#F4F4F2] rounded-2xl border border-transparent focus:bg-white focus:border-[#11693B] focus:outline-none font-mono uppercase text-zinc-900 placeholder:text-zinc-400"
+                />
+                <input
+                  type="tel"
+                  required
+                  value={lookupPhone}
+                  onChange={(e) => setLookupPhone(e.target.value)}
+                  placeholder="Telefone (+244 9...)"
+                  className="w-full px-4 py-3 text-sm bg-[#F4F4F2] rounded-2xl border border-transparent focus:bg-white focus:border-[#11693B] focus:outline-none text-zinc-900 placeholder:text-zinc-400"
+                />
+              </div>
               <button
                 type="submit"
                 disabled={lookupLoading}
-                className="px-4 py-2.5 text-sm font-medium bg-violet-700 text-white rounded-lg hover:bg-violet-800 inline-flex items-center justify-center gap-2"
+                className="w-full min-h-[46px] px-6 py-3 text-sm font-medium bg-[#11693B] hover:bg-[#0D542F] text-white rounded-full transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Search className="w-4 h-4" />
-                Procurar marcação
+                {lookupLoading ? 'A procurar...' : 'Procurar marcação'}
               </button>
             </form>
 
             {lookupError && (
-              <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+              <div className="p-4 rounded-2xl bg-red-50 border border-red-200/80 text-sm text-red-700">
                 {lookupError}
               </div>
             )}
 
             {manageFeedback && (
-              <div className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+              <div className="p-4 rounded-2xl bg-[#E8F3EC] border border-[#11693B]/20 text-sm text-[#11693B] font-medium">
                 {manageFeedback}
               </div>
             )}
 
             {foundBooking && (
-              <div className="border border-zinc-200 rounded-xl p-5 space-y-5 bg-[#fafafc]">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="font-mono text-sm font-semibold text-violet-700">{foundBooking.bookingCode}</p>
-                    <h3 className="text-base font-semibold text-zinc-900 mt-0.5">
-                      {foundBooking.customerName} · {foundBooking.professionalName}
-                    </h3>
-                    <p className="text-sm text-zinc-600 mt-1 tabular-nums">
-                      {formatDatePt(foundBooking.date)} às {foundBooking.startTime}–{foundBooking.serviceEndTime} ·{' '}
-                      {formatKz(foundBooking.totalPriceKz)}
-                    </p>
+              <div className="space-y-3 pt-2">
+                <div className="rounded-2xl bg-white border border-zinc-200/80 shadow-xs overflow-hidden">
+                  <div className="p-4 flex items-center justify-between gap-4">
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-sm font-semibold text-zinc-900 truncate">
+                        {foundBooking.services.map((s) => s.service_name).join(' + ')}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {foundBooking.customerName} · {foundBooking.totalDurationMinutes} min
+                      </p>
+                    </div>
+                    <img
+                      src={coverImage}
+                      alt={salon.name}
+                      referrerPolicy="no-referrer"
+                      className="w-14 h-14 rounded-xl object-cover shrink-0 bg-[#F4F4F2]"
+                    />
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-semibold text-zinc-800">
-                      Estado: {STATUS_LABELS[foundBooking.status]}
+                  <div className="px-4 py-3 border-t border-zinc-100 flex items-center justify-between text-sm">
+                    <span className="text-zinc-700 font-medium">Valor Total</span>
+                    <span className="font-mono font-semibold text-[#11693B] tabular-nums">
+                      {formatKz(foundBooking.totalPriceKz)}
                     </span>
                   </div>
                 </div>
 
-                <div className="text-xs text-zinc-600">
-                  Serviços: {foundBooking.services.map((s) => `${s.service_name} (${s.duration_minutes} min)`).join(', ')}
+                <div className="space-y-2.5">
+                  <div className="px-4 py-3.5 rounded-2xl bg-[#F4F4F2] flex items-center justify-between gap-4 text-sm">
+                    <span className="text-zinc-600">Estado</span>
+                    <span className="font-semibold text-[#11693B]">{STATUS_LABELS[foundBooking.status]}</span>
+                  </div>
+                  <div className="px-4 py-3.5 rounded-2xl bg-[#F4F4F2] flex items-center justify-between gap-4 text-sm">
+                    <span className="text-zinc-600">Código da Marcação</span>
+                    <span className="font-mono font-semibold text-[#11693B]">{foundBooking.bookingCode}</span>
+                  </div>
+                  <div className="px-4 py-3.5 rounded-2xl bg-[#F4F4F2] flex items-center justify-between gap-4 text-sm">
+                    <span className="text-zinc-600">Data e Horário</span>
+                    <span className="font-mono font-medium text-zinc-900 tabular-nums text-right">
+                      {formatDatePt(foundBooking.date)} · {foundBooking.startTime}–{foundBooking.serviceEndTime}
+                    </span>
+                  </div>
+                  <div className="px-4 py-3.5 rounded-2xl bg-[#F4F4F2] flex items-center justify-between gap-4 text-sm">
+                    <span className="text-zinc-600">Profissional</span>
+                    <span className="font-medium text-zinc-900 text-right">{foundBooking.professionalName}</span>
+                  </div>
                 </div>
 
                 {foundBooking.status !== 'CANCELLED' && foundBooking.status !== 'COMPLETED' && (
-                  <div className="pt-4 border-t border-zinc-200 space-y-4">
-                    <div className="flex flex-wrap gap-3">
-                      {foundBooking.status === 'PENDING' && (
-                        <button
-                          type="button"
-                          onClick={() => handleClientAction('CONFIRM_HOLD')}
-                          className="px-4 py-2 text-xs font-medium bg-violet-700 text-white rounded-lg hover:bg-violet-800"
-                        >
-                          Confirmar reserva agora
-                        </button>
-                      )}
-                      {salon.allowClientCancel && (
-                        <button
-                          type="button"
-                          onClick={() => handleClientAction('CANCEL')}
-                          className="px-4 py-2 text-xs font-medium border border-red-200 text-red-700 bg-white rounded-lg hover:bg-red-50"
-                        >
-                          Cancelar marcação
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
+                  <div className="pt-3 space-y-4">
+                    <div className="rounded-2xl bg-[#F4F4F2] p-4 space-y-3">
                       <p className="text-xs font-medium text-zinc-700">Reagendar para outra data/hora:</p>
-                      <div className="flex flex-wrap items-center gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <input
                           type="date"
                           value={rescheduleDate}
@@ -576,12 +568,12 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
                             setRescheduleDate(e.target.value);
                             setRescheduleTime('');
                           }}
-                          className="px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white"
+                          className="px-3.5 py-2.5 text-sm rounded-xl bg-white border border-zinc-200/80 focus:outline-none focus:border-[#11693B]"
                         />
                         <select
                           value={rescheduleTime}
                           onChange={(e) => setRescheduleTime(e.target.value)}
-                          className="px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white"
+                          className="px-3.5 py-2.5 text-sm rounded-xl bg-white border border-zinc-200/80 focus:outline-none focus:border-[#11693B]"
                         >
                           <option value="">Escolher novo horário</option>
                           {rescheduleSlots.map((s) => (
@@ -590,15 +582,36 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
                             </option>
                           ))}
                         </select>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!rescheduleTime || lookupLoading}
+                        onClick={() => handleClientAction('RESCHEDULE')}
+                        className="w-full min-h-[42px] px-4 py-2 text-xs font-medium bg-zinc-900 text-white rounded-full hover:bg-zinc-800 disabled:opacity-40 transition-colors"
+                      >
+                        Confirmar reagendamento
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      {foundBooking.status === 'PENDING' && (
                         <button
                           type="button"
-                          disabled={!rescheduleTime || lookupLoading}
-                          onClick={() => handleClientAction('RESCHEDULE')}
-                          className="px-4 py-2 text-xs font-medium bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 disabled:opacity-40"
+                          onClick={() => handleClientAction('CONFIRM_HOLD')}
+                          className="min-h-[44px] px-6 py-2.5 text-sm font-medium bg-[#11693B] text-white rounded-full hover:bg-[#0D542F] transition-colors"
                         >
-                          Confirmar reagendamento
+                          Confirmar reserva agora
                         </button>
-                      </div>
+                      )}
+                      {salon.allowClientCancel && (
+                        <button
+                          type="button"
+                          onClick={() => handleClientAction('CANCEL')}
+                          className="min-h-[44px] px-6 py-2.5 text-sm font-medium border border-red-200 text-red-700 bg-white rounded-full hover:bg-red-50 transition-colors"
+                        >
+                          Cancelar marcação
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -606,51 +619,93 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
             )}
           </section>
         ) : receipt ? (
-          <section className="bg-white border border-zinc-200 rounded-xl p-6 sm:p-8 space-y-6">
-            <div className="flex items-start gap-4">
-              <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0 mt-0.5" />
-              <div>
-                <h2 className="font-[family-name:var(--font-jakarta)] text-xl font-bold text-zinc-900">
-                  {receipt.appointment.status === 'PENDING'
-                    ? 'Pré-reserva temporária registada'
-                    : 'Marcação confirmada com sucesso'}
-                </h2>
-                <p className="text-sm text-zinc-600 mt-1">
-                  Guarde o seu código para consultar, reagendar ou cancelar quando precisar.
-                </p>
+          /* Ecrã de Confirmação / Detalhes da Marcação (Ecrã 2 da imagem de referência) */
+          <section className="max-w-md mx-auto bg-white rounded-[32px] p-6 sm:p-8 shadow-sm border border-zinc-200/60 space-y-6">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setReceipt(null)}
+                aria-label="Voltar"
+                className="w-10 h-10 rounded-full bg-[#F4F4F2] hover:bg-[#EAECE7] text-zinc-800 flex items-center justify-center transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <span className="text-xs font-medium text-zinc-400 truncate max-w-[180px]">{salon.name}</span>
+              <span className="w-10" aria-hidden="true" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <div className="w-11 h-11 rounded-2xl bg-[#E8F3EC] text-[#11693B] flex items-center justify-center mx-auto">
+                <CalendarCheck2 className="w-5 h-5" />
+              </div>
+              <h1 className="font-[family-name:var(--font-jakarta)] text-xl font-bold text-zinc-900">
+                {receipt.appointment.status === 'PENDING'
+                  ? 'Pré-Reserva Registada'
+                  : 'Detalhes da Marcação'}
+              </h1>
+              <p className="text-xs text-zinc-500">
+                Guarde o seu código para consultar, reagendar ou cancelar quando precisar.
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white border border-zinc-200/80 shadow-xs overflow-hidden">
+              <div className="p-4 flex items-center justify-between gap-4">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-semibold text-zinc-900 line-clamp-2">
+                    {lastBookedServices.length > 0 ? lastBookedServices.join(' + ') : salon.name}
+                  </p>
+                  <p className="text-xs text-zinc-500 tabular-nums">
+                    {receipt.appointment.totalDurationMinutes} min · {receipt.customerName}
+                  </p>
+                </div>
+                <img
+                  src={coverImage}
+                  alt={salon.name}
+                  referrerPolicy="no-referrer"
+                  className="w-14 h-14 rounded-xl object-cover shrink-0 bg-[#F4F4F2]"
+                />
+              </div>
+              <div className="px-4 py-3.5 border-t border-zinc-100 flex items-center justify-between text-sm">
+                <span className="font-medium text-zinc-700">Valor Total</span>
+                <span className="font-mono font-semibold text-[#11693B] tabular-nums">
+                  {formatKz(receipt.appointment.totalPriceKz)}
+                </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl bg-[#fafafc] border border-zinc-200">
-              <div>
-                <p className="text-xs text-zinc-500">Código da marcação</p>
-                <p className="font-mono text-base font-bold text-violet-700 mt-0.5">{receipt.appointment.bookingCode}</p>
+            <div className="space-y-2.5">
+              <div className="px-4 py-3.5 rounded-2xl bg-[#F4F4F2] flex items-center justify-between gap-3 text-sm">
+                <span className="text-zinc-600">Estado</span>
+                <span className="font-semibold text-[#11693B]">
+                  {STATUS_LABELS[receipt.appointment.status]}
+                </span>
               </div>
-              <div>
-                <p className="text-xs text-zinc-500">Data e horário</p>
-                <p className="font-mono text-sm font-semibold text-zinc-900 tabular-nums mt-0.5">
-                  {formatDatePt(receipt.appointment.date)} · {receipt.appointment.startTime}–{receipt.appointment.serviceEndTime}
-                </p>
+              <div className="px-4 py-3.5 rounded-2xl bg-[#F4F4F2] flex items-center justify-between gap-3 text-sm">
+                <span className="text-zinc-600">Código da Marcação</span>
+                <span className="font-mono font-semibold text-[#11693B]">
+                  {receipt.appointment.bookingCode}
+                </span>
               </div>
-              <div>
-                <p className="text-xs text-zinc-500">Profissional</p>
-                <p className="text-sm font-semibold text-zinc-900 mt-0.5">{receipt.professionalName}</p>
+              <div className="px-4 py-3.5 rounded-2xl bg-[#F4F4F2] flex items-center justify-between gap-3 text-sm">
+                <span className="text-zinc-600">Data e Horário</span>
+                <span className="font-mono font-medium text-zinc-900 tabular-nums text-right">
+                  {formatDatePt(receipt.appointment.date)} · {receipt.appointment.startTime}–
+                  {receipt.appointment.serviceEndTime}
+                </span>
               </div>
-              <div>
-                <p className="text-xs text-zinc-500">Valor estimado</p>
-                <p className="font-mono text-sm font-semibold text-zinc-900 tabular-nums mt-0.5">
-                  {formatKz(receipt.appointment.totalPriceKz)}
-                </p>
+              <div className="px-4 py-3.5 rounded-2xl bg-[#F4F4F2] flex items-center justify-between gap-3 text-sm">
+                <span className="text-zinc-600">Profissional</span>
+                <span className="font-medium text-zinc-900 text-right">{receipt.professionalName}</span>
               </div>
             </div>
 
             {receipt.appointment.status === 'PENDING' && receipt.appointment.holdExpiresAt && (
-              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                Esta reserva temporária expira automaticamente em {salon.pendingHoldMinutes} minutos caso não seja confirmada no separador &ldquo;Gerir Marcação&rdquo;.
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl p-3.5">
+                Esta reserva temporária expira automaticamente em {salon.pendingHoldMinutes} minutos caso não seja confirmada em &ldquo;Gerir Marcação&rdquo;.
               </p>
             )}
 
-            <div className="flex flex-wrap gap-3">
+            <div className="pt-1 flex flex-col items-center gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -659,266 +714,383 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
                   setReceipt(null);
                   setActiveTab('manage');
                 }}
-                className="px-4 py-2 text-sm font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50"
+                className="w-full max-w-[240px] min-h-[46px] px-6 py-3 text-sm font-medium bg-[#11693B] hover:bg-[#0D542F] text-white rounded-full transition-colors"
               >
-                Gerir esta marcação
+                Gerir Marcação
               </button>
               <button
                 type="button"
                 onClick={() => setReceipt(null)}
-                className="px-4 py-2 text-sm font-medium bg-violet-700 text-white rounded-lg hover:bg-violet-800"
+                className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
               >
                 Fazer nova marcação
               </button>
             </div>
           </section>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Passos 1, 2 e 3 */}
-            <div className="lg:col-span-7 space-y-6">
-              {/* Passo 1: Serviços */}
-              <section className="bg-white border border-zinc-200 rounded-xl p-6 space-y-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
-                      01. Escolha os serviços
-                    </h2>
-                    <p className="text-xs text-zinc-500 mt-0.5">
-                      Pode selecionar um ou mais serviços para a mesma visita.
-                    </p>
-                  </div>
-                  <span className="font-mono text-xs text-zinc-600 tabular-nums">
-                    {selectedServicesSummary.count} selecionado(s)
-                  </span>
-                </div>
-
-                <div className="space-y-4">
-                  {(categories.length > 0 ? categories : [{ id: 'all', name: 'Serviços' }]).map((cat) => {
-                    const items = services.filter((s) =>
-                      categories.length > 0 ? s.category_id === cat.id : true
-                    );
-                    if (items.length === 0) return null;
-                    return (
-                      <div key={cat.id} className="space-y-2">
-                        <p className="text-xs font-medium text-zinc-500">{cat.name}</p>
-                        <div className="divide-y divide-zinc-100 border border-zinc-200 rounded-lg overflow-hidden">
-                          {items.map((svc) => {
-                            const selected = selectedServiceIds.includes(svc.id);
-                            return (
-                              <button
-                                key={svc.id}
-                                type="button"
-                                onClick={() => toggleService(svc.id)}
-                                className={`w-full text-left p-3.5 flex items-start justify-between gap-4 transition-colors ${
-                                  selected ? 'bg-violet-50/70' : 'bg-white hover:bg-zinc-50'
-                                }`}
-                              >
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium text-zinc-900">{svc.name}</p>
-                                  <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">{svc.description}</p>
-                                  <p className="text-xs text-zinc-500 mt-1.5 font-mono tabular-nums">
-                                    {svc.duration_minutes} min
-                                    {svc.buffer_minutes > 0 ? ` + ${svc.buffer_minutes} min preparação` : ''}
-                                  </p>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <p className="font-mono text-sm font-semibold text-zinc-900 tabular-nums">
-                                    {formatKz(svc.price_kz)}
-                                  </p>
-                                  <span
-                                    className={`inline-block mt-1 text-[11px] font-medium ${
-                                      selected ? 'text-violet-700' : 'text-zinc-400'
-                                    }`}
-                                  >
-                                    {selected ? 'Selecionado' : 'Selecionar'}
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* Passo 2: Profissional */}
-              <section className="bg-white border border-zinc-200 rounded-xl p-6 space-y-4">
-                <div>
-                  <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
-                    02. Escolha a profissional
-                  </h2>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Apenas profissionais habilitadas para todos os serviços escolhidos são apresentadas.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          /* Ecrã Principal: Ecrã 1 (Foto + Folha Branca Sobreposta) + Ecrã 2 (Resumo & Confirmação) */
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Cartão Esquerdo — Visual & Seleção de Serviço / Profissional / Horário */}
+            <section className="lg:col-span-7 bg-white rounded-[32px] overflow-hidden shadow-sm border border-zinc-200/60">
+              {/* Hero Fotográfico com botões circulares flutuantes */}
+              <div className="relative h-64 sm:h-72 bg-zinc-200">
+                <img
+                  src={coverImage}
+                  alt={salon.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-x-0 top-0 p-5 flex items-center justify-between">
+                  <Link
+                    href="/"
+                    aria-label="Voltar ao início"
+                    className="w-10 h-10 rounded-full bg-white text-zinc-900 shadow-sm hover:bg-zinc-50 flex items-center justify-center transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Link>
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedProfessionalId('any');
-                      setSelectedTime('');
-                    }}
-                    className={`p-3.5 rounded-lg border text-left transition-colors flex items-center gap-3 ${
-                      selectedProfessionalId === 'any'
-                        ? 'border-violet-600 bg-violet-50/70'
-                        : 'border-zinc-200 bg-white hover:bg-zinc-50'
-                    }`}
+                    onClick={() => setActiveTab('manage')}
+                    aria-label="Gerir marcação existente"
+                    title="Gerir marcação existente"
+                    className="h-10 px-3.5 rounded-full bg-white text-zinc-900 shadow-sm hover:bg-zinc-50 inline-flex items-center gap-2 text-xs font-medium transition-colors"
                   >
-                    <div className="w-10 h-10 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center shrink-0">
-                      <UserCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-zinc-900">Qualquer profissional disponível</p>
-                      <p className="text-xs text-zinc-500">Encontra o melhor encaixe automático</p>
-                    </div>
+                    <SlidersHorizontal className="w-4 h-4 text-[#11693B]" />
+                    <span>Gerir Marcação</span>
                   </button>
-
-                  {eligibleProfessionals.map((pro) => (
-                    <button
-                      key={pro.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedProfessionalId(pro.id);
-                        setSelectedTime('');
-                      }}
-                      className={`p-3.5 rounded-lg border text-left transition-colors flex items-center gap-3 ${
-                        selectedProfessionalId === pro.id
-                          ? 'border-violet-600 bg-violet-50/70'
-                          : 'border-zinc-200 bg-white hover:bg-zinc-50'
-                      }`}
-                    >
-                      <img
-                        src={pro.avatar_url || '/images/pro_avatar_one_1795068461594.jpg'}
-                        alt={pro.name}
-                        referrerPolicy="no-referrer"
-                        className="w-10 h-10 rounded-full object-cover border border-zinc-200 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-zinc-900 truncate">{pro.name}</p>
-                        <p className="text-xs text-zinc-500 truncate">{pro.specialties}</p>
-                      </div>
-                    </button>
-                  ))}
                 </div>
-              </section>
+              </div>
 
-              {/* Passo 3: Data e Horários Dinâmicos */}
-              <section className="bg-white border border-zinc-200 rounded-xl p-6 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-4">
+              {/* Folha branca sobreposta com traço verde */}
+              <div className="relative z-10 -mt-8 rounded-t-[30px] bg-white px-5 sm:px-7 pt-4 pb-7 space-y-6">
+                <div className="w-9 h-1 rounded-full bg-[#11693B] mx-auto" />
+
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h1 className="font-[family-name:var(--font-jakarta)] text-2xl font-bold text-zinc-900">
+                      {salon.name}
+                    </h1>
+                    <span className="font-mono text-sm font-semibold text-[#11693B] tabular-nums">
+                      {formatKz(selectedServicesSummary.totalPriceKz)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-zinc-500 leading-relaxed">{salon.description}</p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-xs text-zinc-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-[#11693B]" />
+                      {salon.address}, {salon.city}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 font-mono">
+                      <Phone className="w-3.5 h-3.5 text-[#11693B]" />
+                      {salon.phone}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-400">
+                    {workingHours
+                      .filter((w) => w.is_open === 1)
+                      .slice(0, 3)
+                      .map((w) => (
+                        <span key={w.day_of_week}>
+                          {DAY_NAMES_PT[w.day_of_week].slice(0, 3)}: {w.open_time}–{w.close_time}
+                        </span>
+                      ))}
+                    <span>· Antecedência mín. {salon.minAdvanceHours}h</span>
+                  </div>
+                </div>
+
+                {salon.isTemporarilyClosed && (
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>
+                      {salon.closureReason ||
+                        'Este estabelecimento encontra-se temporariamente encerrado para marcações.'}
+                    </span>
+                  </div>
+                )}
+
+                {/* 01. Serviços em pílulas suaves #F4F4F2 */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-zinc-900">
+                      01. Escolha os serviços
+                    </h2>
+                    <span className="font-mono text-xs text-zinc-500 tabular-nums">
+                      {selectedServicesSummary.count} selecionado(s)
+                    </span>
+                  </div>
+
+                  <div className="space-y-4">
+                    {(categories.length > 0 ? categories : [{ id: 'all', name: 'Serviços' }]).map((cat) => {
+                      const items = services.filter((s) =>
+                        categories.length > 0 ? s.category_id === cat.id : true
+                      );
+                      if (items.length === 0) return null;
+                      return (
+                        <div key={cat.id} className="space-y-2">
+                          <p className="text-xs font-medium text-zinc-400">{cat.name}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {items.map((svc) => {
+                              const selected = selectedServiceIds.includes(svc.id);
+                              return (
+                                <button
+                                  key={svc.id}
+                                  type="button"
+                                  onClick={() => toggleService(svc.id)}
+                                  className={`w-full text-left px-4 py-3.5 rounded-2xl transition-all flex items-center justify-between gap-3 ${
+                                    selected
+                                      ? 'bg-[#E8F3EC] ring-1 ring-[#11693B]'
+                                      : 'bg-[#F4F4F2] hover:bg-[#EAECE7]'
+                                  }`}
+                                >
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-zinc-900 truncate">{svc.name}</p>
+                                    <p className="text-[11px] text-zinc-500 font-mono tabular-nums mt-0.5">
+                                      {svc.duration_minutes} min
+                                      {svc.buffer_minutes > 0 ? ` + ${svc.buffer_minutes} min` : ''}
+                                    </p>
+                                  </div>
+                                  <div className="text-right shrink-0 flex items-center gap-2">
+                                    <span className="font-mono text-xs font-semibold text-[#11693B] tabular-nums">
+                                      {formatKz(svc.price_kz)}
+                                    </span>
+                                    {selected && (
+                                      <span className="w-5 h-5 rounded-full bg-[#11693B] text-white flex items-center justify-center">
+                                        <Check className="w-3 h-3" />
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 02. Profissional */}
+                <div className="space-y-3">
                   <div>
-                    <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
-                      03. Data e horário disponível
+                    <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-zinc-900">
+                      02. Escolha a profissional
                     </h2>
                     <p className="text-xs text-zinc-500 mt-0.5">
-                      Horários calculados em tempo real (Fuso Africa/Luanda).
+                      Profissionais habilitadas para os serviços selecionados.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-zinc-400" />
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => {
-                        setSelectedDate(e.target.value);
-                        setSelectedTime('');
-                      }}
-                      className="px-3 py-1.5 text-sm border border-zinc-200 rounded-lg bg-white"
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <button
                       type="button"
-                      onClick={fetchAvailability}
-                      title="Atualizar disponibilidade"
-                      className="p-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 text-zinc-600"
+                      onClick={() => {
+                        setSelectedProfessionalId('any');
+                        setSelectedTime('');
+                      }}
+                      className={`px-4 py-3 rounded-2xl text-left transition-all flex items-center gap-3 ${
+                        selectedProfessionalId === 'any'
+                          ? 'bg-[#E8F3EC] ring-1 ring-[#11693B]'
+                          : 'bg-[#F4F4F2] hover:bg-[#EAECE7]'
+                      }`}
                     >
-                      <RefreshCw className={`w-4 h-4 ${slotsLoading ? 'animate-spin' : ''}`} />
+                      <div className="w-9 h-9 rounded-full bg-white text-[#11693B] flex items-center justify-center shrink-0">
+                        <UserCheck className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-900 truncate">Qualquer disponível</p>
+                        <p className="text-[11px] text-zinc-500 truncate">Melhor encaixe automático</p>
+                      </div>
                     </button>
-                  </div>
-                </div>
 
-                {slotsLoading ? (
-                  <p className="text-sm text-zinc-500 py-4">A verificar disponibilidade real...</p>
-                ) : closedReason ? (
-                  <div className="p-4 rounded-lg bg-zinc-50 border border-zinc-200 text-sm text-zinc-700">
-                    {closedReason}
-                  </div>
-                ) : slots.length === 0 ? (
-                  <div className="p-4 rounded-lg bg-zinc-50 border border-zinc-200 text-sm text-zinc-600">
-                    Sem horários livres para esta combinação nesta data. Experimente outro dia ou selecione &ldquo;Qualquer profissional disponível&rdquo;.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
-                    {slots.map((slot) => {
-                      const active = selectedTime === slot.time;
+                    {eligibleProfessionals.map((pro) => {
+                      const active = selectedProfessionalId === pro.id;
                       return (
                         <button
-                          key={slot.time}
+                          key={pro.id}
                           type="button"
-                          onClick={() => setSelectedTime(slot.time)}
-                          className={`py-2.5 px-2 rounded-lg border text-center transition-colors ${
+                          onClick={() => {
+                            setSelectedProfessionalId(pro.id);
+                            setSelectedTime('');
+                          }}
+                          className={`px-4 py-3 rounded-2xl text-left transition-all flex items-center gap-3 ${
                             active
-                              ? 'border-violet-700 bg-violet-700 text-white'
-                              : 'border-zinc-200 bg-white hover:border-violet-300 text-zinc-900'
+                              ? 'bg-[#E8F3EC] ring-1 ring-[#11693B]'
+                              : 'bg-[#F4F4F2] hover:bg-[#EAECE7]'
                           }`}
                         >
-                          <span className="font-mono text-sm font-medium tabular-nums block">{slot.time}</span>
-                          <span className={`font-mono text-[10px] ${active ? 'text-violet-100' : 'text-zinc-400'}`}>
-                            até {slot.endTime}
-                          </span>
+                          <img
+                            src={pro.avatar_url || '/images/pro_avatar_one_1795068461594.jpg'}
+                            alt={pro.name}
+                            referrerPolicy="no-referrer"
+                            className="w-9 h-9 rounded-full object-cover shrink-0 bg-white"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-zinc-900 truncate">{pro.name}</p>
+                            <p className="text-[11px] text-zinc-500 truncate">{pro.specialties}</p>
+                          </div>
                         </button>
                       );
                     })}
                   </div>
-                )}
-              </section>
-            </div>
+                </div>
 
-            {/* Resumo e Dados da Cliente */}
-            <div className="lg:col-span-5">
+                {/* 03. Data e Horários Dinâmicos */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="font-[family-name:var(--font-jakarta)] text-sm font-semibold text-zinc-900">
+                        03. Data e horário disponível
+                      </h2>
+                      <p className="text-xs text-zinc-500 mt-0.5">
+                        Disponibilidade em tempo real (Africa/Luanda).
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex items-center">
+                        <Calendar className="w-4 h-4 text-[#11693B] absolute left-3 pointer-events-none" />
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => {
+                            setSelectedDate(e.target.value);
+                            setSelectedTime('');
+                          }}
+                          className="pl-9 pr-3 py-2 text-sm bg-[#F4F4F2] rounded-xl border border-transparent focus:bg-white focus:border-[#11693B] focus:outline-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={fetchAvailability}
+                        title="Atualizar disponibilidade"
+                        aria-label="Atualizar disponibilidade"
+                        className="w-9 h-9 rounded-full bg-[#F4F4F2] hover:bg-[#EAECE7] text-zinc-700 flex items-center justify-center transition-colors"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${slotsLoading ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {slotsLoading ? (
+                    <p className="text-sm text-zinc-500 py-3">A verificar disponibilidade real...</p>
+                  ) : closedReason ? (
+                    <div className="p-4 rounded-2xl bg-[#F4F4F2] text-sm text-zinc-700">
+                      {closedReason}
+                    </div>
+                  ) : slots.length === 0 ? (
+                    <div className="p-4 rounded-2xl bg-[#F4F4F2] text-sm text-zinc-600">
+                      Sem horários livres para esta combinação nesta data. Experimente outro dia ou selecione &ldquo;Qualquer disponível&rdquo;.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                      {slots.map((slot) => {
+                        const active = selectedTime === slot.time;
+                        return (
+                          <button
+                            key={slot.time}
+                            type="button"
+                            onClick={() => setSelectedTime(slot.time)}
+                            className={`py-2.5 px-2 rounded-2xl text-center transition-colors ${
+                              active
+                                ? 'bg-[#11693B] text-white'
+                                : 'bg-[#F4F4F2] hover:bg-[#EAECE7] text-zinc-900'
+                            }`}
+                          >
+                            <span className="font-mono text-sm font-medium tabular-nums block">
+                              {slot.time}
+                            </span>
+                            <span className={`font-mono text-[10px] ${active ? 'text-emerald-100' : 'text-zinc-500'}`}>
+                              até {slot.endTime}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Barra de ação inferior fiel à referência (reset + atalho para confirmar no mobile) */}
+                <div className="pt-2 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={handleResetSelection}
+                    title="Repor seleção"
+                    aria-label="Repor seleção"
+                    className="w-11 h-11 rounded-full bg-[#F4F4F2] hover:bg-[#EAECE7] text-zinc-700 flex items-center justify-center transition-colors shrink-0"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                  <a
+                    href="#confirmar-marcacao"
+                    className="lg:hidden flex-1 min-h-[44px] px-6 py-2.5 rounded-full bg-[#11693B] hover:bg-[#0D542F] text-white text-sm font-medium inline-flex items-center justify-center transition-colors"
+                  >
+                    Continuar para Confirmar
+                  </a>
+                  <span className="hidden lg:inline-flex text-xs text-zinc-400">
+                    Preencha os seus dados ao lado para confirmar
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* Cartão Direito — Resumo & Confirmação (estética limpa do Ecrã 2 da referência) */}
+            <aside id="confirmar-marcacao" className="lg:col-span-5 lg:sticky lg:top-6">
               <form
                 onSubmit={handleConfirmBooking}
-                className="bg-white border border-zinc-200 rounded-xl p-6 space-y-5 sticky top-6"
+                className="bg-white rounded-[32px] p-6 sm:p-7 shadow-sm border border-zinc-200/60 space-y-5"
               >
-                <div>
-                  <h2 className="font-[family-name:var(--font-jakarta)] text-base font-semibold text-zinc-900">
-                    04. Os seus dados e confirmação
+                <div className="text-center space-y-1.5">
+                  <div className="w-10 h-10 rounded-2xl bg-[#E8F3EC] text-[#11693B] flex items-center justify-center mx-auto">
+                    <CalendarCheck2 className="w-5 h-5" />
+                  </div>
+                  <h2 className="font-[family-name:var(--font-jakarta)] text-lg font-bold text-zinc-900">
+                    Resumo da Marcação
                   </h2>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Sem necessidade de criar conta. Validação imediata no servidor.
+                  <p className="text-xs text-zinc-500">
+                    Sem necessidade de criar conta. Validação imediata.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-lg bg-[#fafafc] border border-zinc-200 space-y-2 text-xs">
-                  <div className="flex justify-between gap-2">
-                    <span className="text-zinc-500">Serviços</span>
-                    <span className="text-zinc-900 font-medium text-right">
-                      {selectedServicesSummary.names.join(' + ') || 'Nenhum'}
-                    </span>
+                {/* Caixa elevada de resumo + Total */}
+                <div className="rounded-2xl bg-white border border-zinc-200/80 shadow-xs overflow-hidden">
+                  <div className="p-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-sm font-semibold text-zinc-900 line-clamp-2">
+                        {selectedServicesSummary.names.join(' + ') || 'Selecione um serviço'}
+                      </p>
+                      <p className="text-xs text-zinc-500 tabular-nums">
+                        {selectedServicesSummary.totalDuration} min · {selectedProfessionalLabel}
+                      </p>
+                    </div>
+                    <img
+                      src={coverImage}
+                      alt={salon.name}
+                      referrerPolicy="no-referrer"
+                      className="w-12 h-12 rounded-xl object-cover shrink-0 bg-[#F4F4F2]"
+                    />
                   </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-zinc-500">Duração total</span>
-                    <span className="font-mono text-zinc-900 tabular-nums">
-                      {selectedServicesSummary.totalDuration} min
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-zinc-500">Data &amp; Hora</span>
-                    <span className="font-mono text-zinc-900 tabular-nums">
-                      {selectedDate ? formatDatePt(selectedDate) : '—'} · {selectedTime || 'Escolha um horário'}
-                    </span>
-                  </div>
-                  <div className="pt-2 border-t border-zinc-200 flex justify-between gap-2 text-sm font-semibold">
-                    <span className="text-zinc-900">Total estimado</span>
-                    <span className="font-mono text-violet-700 tabular-nums">
+                  <div className="px-4 py-3 border-t border-zinc-100 flex items-center justify-between text-sm">
+                    <span className="text-zinc-700 font-medium">Valor Total</span>
+                    <span className="font-mono font-semibold text-[#11693B] tabular-nums">
                       {formatKz(selectedServicesSummary.totalPriceKz)}
                     </span>
                   </div>
                 </div>
 
+                {/* Linhas #F4F4F2 para Data/Horário e Duração */}
+                <div className="space-y-2">
+                  <div className="px-4 py-3 rounded-2xl bg-[#F4F4F2] flex items-center justify-between gap-3 text-xs">
+                    <span className="text-zinc-500">Data &amp; Horário</span>
+                    <span className="font-mono font-medium text-[#11693B] tabular-nums text-right">
+                      {selectedDate ? formatDatePt(selectedDate) : '—'} ·{' '}
+                      {selectedSlotInfo
+                        ? `${selectedSlotInfo.time}–${selectedSlotInfo.endTime}`
+                        : 'Escolha um horário'}
+                    </span>
+                  </div>
+                </div>
+
                 {submitError && (
-                  <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                  <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-sm text-red-700">
                     {submitError}
                   </div>
                 )}
@@ -932,39 +1104,47 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="Ex.: Maria Fernandes"
-                      className="w-full px-3.5 py-2.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-600/20 focus:border-violet-600"
+                      className="w-full px-4 py-2.5 text-sm bg-[#F4F4F2] rounded-2xl border border-transparent focus:bg-white focus:border-[#11693B] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-zinc-700 mb-1">Telefone (WhatsApp / Chamadas)</label>
+                    <label className="block text-xs font-medium text-zinc-700 mb-1">
+                      Telefone (WhatsApp / Chamadas)
+                    </label>
                     <input
                       type="tel"
                       required
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="+244 923 000 000"
-                      className="w-full px-3.5 py-2.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-600/20 focus:border-violet-600"
+                      className="w-full px-4 py-2.5 text-sm bg-[#F4F4F2] rounded-2xl border border-transparent focus:bg-white focus:border-[#11693B] focus:outline-none"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-700 mb-1">E-mail (opcional)</label>
-                    <input
-                      type="email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="cliente@exemplo.ao"
-                      className="w-full px-3.5 py-2.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-600/20 focus:border-violet-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-700 mb-1">Observações (opcional)</label>
-                    <textarea
-                      rows={2}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Preferências ou notas para a profissional..."
-                      className="w-full px-3.5 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-600/20 focus:border-violet-600"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-700 mb-1">
+                        E-mail (opcional)
+                      </label>
+                      <input
+                        type="email"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        placeholder="cliente@exemplo.ao"
+                        className="w-full px-3.5 py-2.5 text-sm bg-[#F4F4F2] rounded-2xl border border-transparent focus:bg-white focus:border-[#11693B] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-700 mb-1">
+                        Observações
+                      </label>
+                      <input
+                        type="text"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Preferências..."
+                        className="w-full px-3.5 py-2.5 text-sm bg-[#F4F4F2] rounded-2xl border border-transparent focus:bg-white focus:border-[#11693B] focus:outline-none"
+                      />
+                    </div>
                   </div>
 
                   <label className="flex items-start gap-2.5 pt-1 text-xs text-zinc-600 cursor-pointer">
@@ -972,10 +1152,10 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
                       type="checkbox"
                       checked={asPendingHold}
                       onChange={(e) => setAsPendingHold(e.target.checked)}
-                      className="mt-0.5 rounded border-zinc-300 text-violet-700 focus:ring-violet-600"
+                      className="mt-0.5 rounded border-zinc-300 text-[#11693B] focus:ring-[#11693B]"
                     />
                     <span>
-                      Registar como pré-reserva temporária ({salon.pendingHoldMinutes} min para confirmar antes da libertação automática)
+                      Pré-reserva temporária ({salon.pendingHoldMinutes} min para confirmar antes da libertação)
                     </span>
                   </label>
                 </div>
@@ -983,16 +1163,16 @@ export default function PublicBookingClient({ slug }: { slug: string }) {
                 <button
                   type="submit"
                   disabled={submitting || !selectedTime || salon.isTemporarilyClosed}
-                  className="w-full py-3 px-4 text-sm font-medium text-white bg-violet-700 rounded-lg hover:bg-violet-800 transition-colors disabled:opacity-40 inline-flex items-center justify-center gap-2"
+                  className="w-full min-h-[48px] py-3 px-6 text-sm font-medium text-white bg-[#11693B] rounded-full hover:bg-[#0D542F] transition-colors disabled:opacity-40 inline-flex items-center justify-center gap-2"
                 >
                   <Clock className="w-4 h-4" />
-                  {submitting ? 'A validar disponibilidade...' : 'Confirmar Pedido de Agendamento'}
+                  {submitting ? 'A validar disponibilidade...' : 'Confirmar Marcação'}
                 </button>
               </form>
-            </div>
+            </aside>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
