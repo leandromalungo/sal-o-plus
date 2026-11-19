@@ -20,12 +20,16 @@ export async function POST(req: NextRequest) {
   const headerLayer = req.headers.get('x-salao-layer') || undefined;
   const target = requestedLayer || headerLayer;
 
+  const isHttps =
+    req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
+
   const response = NextResponse.json({ ok: true });
 
   if (target && isValidAuthLayer(target)) {
     response.cookies.set(AUTH_LAYERS[target].cookieName, '', {
       httpOnly: true,
       sameSite: 'lax',
+      secure: isHttps,
       path: '/',
       maxAge: 0,
     });
@@ -36,6 +40,7 @@ export async function POST(req: NextRequest) {
     response.cookies.set(AUTH_LAYERS[layer].cookieName, '', {
       httpOnly: true,
       sameSite: 'lax',
+      secure: isHttps,
       path: '/',
       maxAge: 0,
     });
@@ -43,6 +48,7 @@ export async function POST(req: NextRequest) {
   response.cookies.set(GESTAO_FALLBACK_LAYER_COOKIE, '', {
     httpOnly: true,
     sameSite: 'lax',
+    secure: isHttps,
     path: '/',
     maxAge: 0,
   });

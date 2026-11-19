@@ -1,6 +1,7 @@
 // Camada de base de dados SQLite transacional (node:sqlite) com isolamento ACID e restrições de integridade
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -11,14 +12,44 @@ declare global {
 
 const DEFAULT_DB_PATH = path.join(process.cwd(), '.data', 'salaomais.db');
 
+function isDirectoryWritable(dirPath: string, filePath?: string): boolean {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+    fs.accessSync(dirPath, fs.constants.W_OK);
+    if (filePath && fs.existsSync(filePath)) {
+      fs.accessSync(filePath, fs.constants.W_OK);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function resolveDbPath(): string {
-  return process.env.SALAO_DB_PATH || DEFAULT_DB_PATH;
+  if (process.env.SALAO_DB_PATH) {
+    return process.env.SALAO_DB_PATH;
+  }
+
+  const isServerless = Boolean(
+    process.env.VERCEL || process.env.VERCEL_ENV || process.env.AWS_LAMBDA_FUNCTION_NAME
+  );
+
+  if (!isServerless && isDirectoryWritable(path.dirname(DEFAULT_DB_PATH), DEFAULT_DB_PATH)) {
+    return DEFAULT_DB_PATH;
+  }
+
+  return path.join(os.tmpdir(), 'salaomais.db');
 }
 
 function applySchema(db: DatabaseSync): void {
+  try {
+    db.exec('PRAGMA journal_mode = WAL;');
+  } catch {
+    // Em alguns sistemas de ficheiros serverless o modo WAL pode não estar disponível
+  }
+
   db.exec(`
     PRAGMA foreign_keys = ON;
-    PRAGMA journal_mode = WAL;
     PRAGMA busy_timeout = 5000;
 
     CREATE TABLE IF NOT EXISTS salons (
@@ -444,6 +475,17 @@ export function getDb(): DatabaseSync {
 
   if (targetPath !== ':memory:') {
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    if (
+      targetPath !== DEFAULT_DB_PATH &&
+      !fs.existsSync(targetPath) &&
+      fs.existsSync(DEFAULT_DB_PATH)
+    ) {
+      try {
+        fs.copyFileSync(DEFAULT_DB_PATH, targetPath);
+      } catch {
+        // Se não houver cópia prévia disponível, cria e executa seed normalmente em /tmp
+      }
+    }
   }
 
   const db = new DatabaseSync(targetPath);

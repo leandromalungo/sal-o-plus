@@ -1,6 +1,7 @@
 // Verificação server-side de tokens Google OAuth / Firebase Auth
 
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 
 interface FirebaseClientConfig {
@@ -9,12 +10,26 @@ interface FirebaseClientConfig {
 }
 
 function getFirebaseConfig(): FirebaseClientConfig {
+  let fileConfig: FirebaseClientConfig = {};
   try {
-    const raw = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
-    return JSON.parse(raw) as FirebaseClientConfig;
+    const req = createRequire(import.meta.url);
+    fileConfig = req('../../firebase-applet-config.json') as FirebaseClientConfig;
   } catch {
-    return {};
+    try {
+      const raw = fs.readFileSync(
+        path.join(process.cwd(), 'firebase-applet-config.json'),
+        'utf8'
+      );
+      fileConfig = JSON.parse(raw) as FirebaseClientConfig;
+    } catch {
+      fileConfig = {};
+    }
   }
+
+  return {
+    apiKey: process.env.FIREBASE_API_KEY || fileConfig.apiKey,
+    oAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID || fileConfig.oAuthClientId,
+  };
 }
 
 export interface VerifiedGoogleIdentity {
