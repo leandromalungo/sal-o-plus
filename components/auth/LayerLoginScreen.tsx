@@ -266,30 +266,25 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#142318] flex items-center justify-center p-4 sm:p-6 lg:p-10">
-      <div className="w-full max-w-[540px] lg:max-w-[1140px] rounded-[26px] lg:rounded-[30px] bg-white p-4 sm:p-6 lg:p-4 shadow-2xl grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 sm:p-6 lg:p-10">
+      <div className="w-full max-w-[540px] lg:max-w-[1140px] rounded-[26px] lg:rounded-[30px] bg-white sm:border sm:border-zinc-200/80 p-2 sm:p-6 lg:p-4 lg:shadow-xl lg:shadow-zinc-900/[0.04] grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         {/* Painel Esquerdo: Identidade Visual da Camada Atual (oculto em telas menores para exibir apenas o formulário) */}
-        <section
-          className="hidden lg:flex lg:col-span-5 rounded-[24px] p-8 flex-col justify-between text-white relative overflow-hidden lg:min-h-[640px]"
-          style={{
-            background:
-              'radial-gradient(circle at 82% 24%, rgba(168, 223, 26, 0.36) 0%, rgba(28, 63, 37, 0.92) 45%, #142318 100%)',
-          }}
-        >
+        <section className="hidden lg:flex lg:col-span-5 rounded-[24px] p-8 flex-col justify-between bg-[#F6F7F4] border border-zinc-200/70 text-[#142318] relative overflow-hidden lg:min-h-[640px]">
           <div className="relative z-10 flex items-center justify-between gap-4">
             <Link href="/" className="inline-flex items-center gap-2.5 whitespace-nowrap shrink-0">
               <span className="w-8 h-8 rounded-full bg-[#A8DF1A] text-[#142318] flex items-center justify-center">
                 <Asterisk className="w-4 h-4" strokeWidth={2.5} />
               </span>
-              <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-tight text-white">
+              <span className="font-[family-name:var(--font-jakarta)] text-base font-semibold tracking-tight text-[#142318]">
                 Salão+
               </span>
             </Link>
+            <span className="text-[11px] font-medium text-zinc-500">Luanda · Angola</span>
           </div>
 
           <div className="relative z-10 my-5 flex items-center justify-center">
             <div className="relative w-full max-w-[290px] h-40">
-              <div className="absolute left-2 top-2 w-36 h-28 rounded-2xl overflow-hidden border-2 border-white/90 shadow-lg -rotate-3 bg-[#142318]">
+              <div className="absolute left-2 top-2 w-36 h-28 rounded-2xl overflow-hidden border-2 border-white shadow-md -rotate-3 bg-zinc-100">
                 <img
                   src="/images/salon_studio_cover_1795068461036.jpg"
                   alt="Ambiente do salão"
@@ -297,7 +292,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="absolute right-2 bottom-1 w-36 h-28 rounded-2xl overflow-hidden border-2 border-white/90 shadow-lg rotate-3 bg-[#142318]">
+              <div className="absolute right-2 bottom-1 w-36 h-28 rounded-2xl overflow-hidden border-2 border-white shadow-md rotate-3 bg-zinc-100">
                 <img
                   src={
                     layer === 'profissional'
@@ -309,24 +304,21 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                   className="w-full h-full object-cover object-top"
                 />
               </div>
-              <span className="absolute right-4 top-0 px-3 py-1 rounded-full bg-[#A8DF1A] text-[#142318] text-[10px] font-semibold tracking-wide shadow-sm rotate-2">
-                Luanda · Angola
-              </span>
             </div>
           </div>
 
           <div className="relative z-10">
-            <span className="inline-block px-3.5 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-medium text-white/95 mb-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#11693B] mb-2">
               {meta.badge}
-            </span>
+            </p>
 
-            <h1 className="font-[family-name:var(--font-jakarta)] text-3xl sm:text-[34px] font-medium leading-[1.12] tracking-tight text-white">
+            <h1 className="font-[family-name:var(--font-jakarta)] text-3xl sm:text-[34px] font-medium leading-[1.12] tracking-tight text-[#142318]">
               {meta.headlinePrefix}{' '}
               <span className="inline-block bg-[#A8DF1A] text-[#142318] px-2.5 py-0.5 rounded-lg font-semibold">
                 {meta.headlineHighlight}
               </span>
             </h1>
-            <p className="text-xs sm:text-sm text-white/75 mt-2.5 leading-relaxed">{meta.subtitle}</p>
+            <p className="text-xs sm:text-sm text-zinc-600 mt-2.5 leading-relaxed">{meta.subtitle}</p>
 
             <div className="grid grid-cols-3 gap-2.5 mt-6">
               {meta.steps.map((stepText, idx) => {
@@ -339,13 +331,13 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
                     onClick={() => setActiveStep(stepNum)}
                     className={`text-left rounded-2xl p-3 sm:p-3.5 transition-colors flex flex-col justify-between min-h-[104px] cursor-pointer ${
                       isSelected
-                        ? 'bg-white text-[#142318] shadow-md'
-                        : 'bg-white/15 backdrop-blur-md text-white/90 hover:bg-white/25 border border-white/10'
+                        ? 'bg-white text-[#142318] shadow-sm border border-zinc-200/80'
+                        : 'bg-white/60 text-zinc-600 hover:bg-white border border-zinc-200/50'
                     }`}
                   >
                     <span
                       className={`w-6 h-6 rounded-full text-[11px] font-semibold flex items-center justify-center tabular-nums ${
-                        isSelected ? 'bg-[#A8DF1A] text-[#142318]' : 'bg-white/20 text-white'
+                        isSelected ? 'bg-[#A8DF1A] text-[#142318]' : 'bg-zinc-200/80 text-zinc-700'
                       }`}
                     >
                       {stepNum}
@@ -738,7 +730,7 @@ function LayerLoginInner({ layer }: { layer: AuthLayer }) {
 
 export default function LayerLoginScreen({ layer }: { layer: AuthLayer }) {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#142318]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
       <LayerLoginInner layer={layer} />
     </Suspense>
   );
